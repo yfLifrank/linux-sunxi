@@ -24,6 +24,19 @@ static u8 h27q_read_retry_regs[] = {
 	0x38, 0x39, 0x3a, 0x3b,
 };
 
+static u8 h27ubg8t2b_read_retry_regs[] = {
+	0xa7, 0xad, 0xae, 0xaf,
+};
+
+static s16 h27ubg8t2b_read_retry_vals[] = {
+	0x00, 0x06, 0x0a, 0x06,
+	0x00, -0x03, -0x07, -0x08,
+	0x00, -0x06, -0x0d, -0x0f,
+	0x00, -0x09, -0x14, -0x17,
+	0x00,  0x00, -0x1a, -0x1e,
+	0x00,  0x00, -0x20, -0x25,
+};
+
 struct hynix_read_retry {
 	int nregs;
 	u8 *regs;
@@ -131,6 +144,65 @@ leave:
 	kfree(buf);
 
 	return ret;
+}
+
+static int h27ubg8t2b_init(struct mtd_info *mtd, const uint8_t *id)
+{
+	struct nand_chip *chip = mtd->priv;
+	struct hynix_nand *hynix;
+	int i;
+
+	hynix = kzalloc(sizeof(*hynix) +
+			ARRAY_SIZE(h27ubg8t2b_read_retry_vals) + 1,
+			GFP_KERNEL);
+	if (!hynix)
+		return -ENOMEM;
+
+	hynix->read_retry.nregs = ARRAY_SIZE(h27ubg8t2b_read_retry_regs);
+	hynix->read_retry.regs = h27ubg8t2b_read_retry_regs;
+
+	chip->select_chip(mtd, 0);
+	chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
+
+	for (i = 0; i < hynix->read_retry.nregs; i++) {
+		int column = h27ubg8t2b_read_retry_regs[i];
+
+		column |= column << 8;
+		chip->cmdfunc(mtd, 0x37, column, -1);
+		hynix->read_retry.values[i] = chip->read_byte(mtd);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(h27ubg8t2b_read_retry_vals); i++) {
+		s16 tmp;
+
+		tmp = h27ubg8t2b_read_retry_vals[i] +
+		      hynix->read_retry.values[i % hynix->read_retry.nregs];
+
+		if (tmp > 0xff)
+			tmp = 0xff;
+		else if (tmp < 0)
+			tmp = 0;
+
+		if ((i / hynix->read_retry.nregs) &&
+		    (i % hynix->read_retry.nregs) == 0)
+			tmp = 0;
+
+		if ((i / hynix->read_retry.nregs) > 3  &&
+		    (i % hynix->read_retry.nregs) == 1)
+			tmp = 0;
+
+		hynix->read_retry.values[i + hynix->read_retry.nregs] = tmp;
+	}
+
+
+	chip->manuf_priv = hynix;
+	chip->setup_read_retry = nand_setup_read_retry_hynix;
+	chip->read_retries = 7;
+	chip->manuf_cleanup = h27_cleanup;
+
+	nand_setup_read_retry_hynix(mtd, 0);
+
+	return 0;
 }
 
 static int h27q_get_best_val(const u8 *buf, int size, int min_cnt)
@@ -301,6 +373,10 @@ struct hynix_nand_initializer initializers[] = {
 	{
 		.id = {NAND_MFR_HYNIX, 0xde, 0x94, 0xda, 0x74, 0xc4},
 		.init = h27ucg8t2a_init,
+	},
+	{
+		.id = {NAND_MFR_HYNIX, 0xd7, 0x94, 0xda, 0x74, 0xc3},
+		.init = h27ubg8t2b_init,
 	},
 	{
 		.id = {NAND_MFR_HYNIX, 0xde, 0x14, 0xa7, 0x42, 0x4a},
