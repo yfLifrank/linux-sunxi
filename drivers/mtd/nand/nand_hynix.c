@@ -71,6 +71,14 @@ int nand_setup_read_retry_hynix(struct mtd_info *mtd, int retry_mode)
 	return 0;
 }
 
+static void nand_set_slc_mode_hynix(struct mtd_info *mtd, bool enable)
+{
+	struct nand_chip *chip = mtd->priv;
+	u8 cmd = enable ? 0xbf : 0xbe;
+
+	chip->cmdfunc(mtd, cmd, -1, -1);
+}
+
 static void h27_cleanup(struct mtd_info *mtd)
 {
 	struct nand_chip *chip = mtd->priv;
@@ -146,6 +154,11 @@ leave:
 	return ret;
 }
 
+static void h27ubg8t2b_fix_page(struct mtd_info *mtd, int *page)
+{
+	*page = (*page & 0x7f) | ((*page >> 1) & ~0x7f);
+}
+
 static int h27ubg8t2b_init(struct mtd_info *mtd, const uint8_t *id)
 {
 	struct nand_chip *chip = mtd->priv;
@@ -199,6 +212,8 @@ static int h27ubg8t2b_init(struct mtd_info *mtd, const uint8_t *id)
 	chip->setup_read_retry = nand_setup_read_retry_hynix;
 	chip->read_retries = 7;
 	chip->manuf_cleanup = h27_cleanup;
+	chip->set_slc_mode = nand_set_slc_mode_hynix;
+	chip->fix_page = h27ubg8t2b_fix_page;
 
 	nand_setup_read_retry_hynix(mtd, 0);
 
@@ -246,14 +261,6 @@ static int h27q_get_best_val(const u8 *buf, int size, int min_cnt)
 
 #define H27Q_RR_TABLE_SIZE		784
 #define H27Q_RR_TABLE_NSETS		8
-
-static void h27q_set_slc_mode(struct mtd_info *mtd, bool enable)
-{
-	struct nand_chip *chip = mtd->priv;
-	u8 cmd = enable ? 0xbf : 0xbe;
-
-	chip->cmdfunc(mtd, cmd, -1, -1);
-}
 
 static int h27q_init(struct mtd_info *mtd, const uint8_t *id)
 {
@@ -353,7 +360,7 @@ static int h27q_init(struct mtd_info *mtd, const uint8_t *id)
 	chip->setup_read_retry = nand_setup_read_retry_hynix;
 	chip->read_retries = total_rr_count;
 	chip->manuf_cleanup = h27_cleanup;
-	chip->set_slc_mode = h27q_set_slc_mode;
+	chip->set_slc_mode = nand_set_slc_mode_hynix;
 
 	return 0;
 
