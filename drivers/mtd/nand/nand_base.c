@@ -3367,6 +3367,61 @@ static void nand_onfi_detect_micron(struct nand_chip *chip,
 	chip->setup_read_retry = nand_setup_read_retry_micron;
 }
 
+static int nand_configure_data_interface(struct mtd_info *mtd)
+{
+	struct nand_chip *chip = mtd->priv;
+	struct nand_data_interface *conf;
+	int modes, mode, ret = -EINVAL;
+
+	conf = kzalloc(sizeof(*conf), GFP_KERNEL);
+	if (!conf)
+		return -ENOMEM;
+
+	/* TODO: support DDR interfaces */
+	conf->type = NAND_SDR_IFACE;
+
+	/*
+	 * First try to identify the best timings from ONFI parameters and
+	 * if the NAND does not support ONFI, fallback to the default ONFI
+	 * timing mode.
+	 */
+	modes = onfi_get_async_timing_mode(chip);
+	if (modes != ONFI_TIMING_MODE_UNKNOWN) {
+		for (mode = fls(modes) - 1; mode >= 0; mode--) {
+			conf->timings.sdr =
+				*onfi_async_timing_mode_to_sdr_timings(mode);
+
+			ret = nand_check_data_interface(mtd, conf);
+			if (!ret)
+				break;
+		}
+	} else {
+		mode = chip->onfi_timing_mode_default;
+		conf->timings.sdr =
+				*onfi_async_timing_mode_to_sdr_timings(mode);
+
+		ret = nand_check_data_interface(mtd, conf);
+	}
+
+	if (!ret) {
+		uint8_t mode_param[ONFI_SUBFEATURE_PARAM_LEN] = { mode };
+
+		/* FIXME: should we set the timing mode on all dies? */
+		chip->select_chip(mtd, 0);
+		ret = chip->onfi_set_features(mtd, chip,
+					      ONFI_FEATURE_ADDR_TIMING_MODE,
+					      mode_param);
+		chip->select_chip(mtd, -1);
+
+		if (!ret)
+			ret = nand_setup_data_interface(mtd, conf);
+	}
+
+	kfree(conf);
+
+	return ret;
+}
+
 /*
  * Check if the NAND chip is ONFI compliant, returns 1 if it is, 0 otherwise.
  */
@@ -3953,6 +4008,12 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 		chip->options &= ~NAND_SAMSUNG_LP_OPTIONS;
 ident_done:
 
+	/*
+	 * Setup the NAND interface (interface type + timings).
+	 * This has to be called before
+	 */
+	nand_configure_data_interface(mtd);
+
 	/* Try to identify manufacturer */
 	for (maf_idx = 0; nand_manuf_ids[maf_idx].id != 0x0; maf_idx++) {
 		if (nand_manuf_ids[maf_idx].id == *maf_id)
@@ -4087,6 +4148,41 @@ int nand_scan_ident(struct mtd_info *mtd, int maxchips,
 	/* Set the default functions */
 	nand_set_defaults(chip, chip->options & NAND_BUSWIDTH_16);
 
+	/*
+	 * Allocate an interface config struct if the controller implements the
+	 * ->apply_interface_conf() method.
+	 */
+	if (chip->setup_data_interface) {
+		chip->data_iface = kzalloc(sizeof(*chip->data_iface),
+					   GFP_KERNEL);
+		if (!chip->data_iface)
+			return -ENOMEM;
+
+		/*
+		 * The ONFI specification says:
+		 * "
+		 * To transition from NV-DDR or NV-DDR2 to the SDR data
+		 * interface, the host shall use the Reset (FFh) command
+		 * using SDR timing mode 0. A device in any timing mode is
+		 * required to recognize Reset (FFh) command issued in SDR
+		 * timing mode 0.
+		 * "
+		 *
+		 * Configure the data interface in SDR mode and set the
+		 * timings to timing mode 0. The Reset command is issued
+		 * in nand_get_flash_type().
+		 */
+
+		chip->data_iface->type = NAND_SDR_IFACE;
+		chip->data_iface->timings.sdr =
+				*onfi_async_timing_mode_to_sdr_timings(0);
+		ret = chip->setup_data_interface(mtd, chip->data_iface, false);
+		if (ret) {
+			pr_err("Failed to configure data interface to SDR timing mode 0\n");
+			goto err;
+		}
+	}
+
 	/* Read the flash type */
 	type = nand_get_flash_type(mtd, chip, &nand_maf_id,
 				   &nand_dev_id, table);
@@ -4095,7 +4191,9 @@ int nand_scan_ident(struct mtd_info *mtd, int maxchips,
 		if (!(chip->options & NAND_SCAN_SILENT_NODEV))
 			pr_warn("No NAND device found\n");
 		chip->select_chip(mtd, -1);
-		return PTR_ERR(type);
+		kfree(chip->data_iface);
+		ret = PTR_ERR(type);
+		goto err;
 	}
 
 	chip->select_chip(mtd, -1);
@@ -4123,8 +4221,43 @@ int nand_scan_ident(struct mtd_info *mtd, int maxchips,
 	mtd->size = i * chip->chipsize;
 
 	return 0;
+
+err:
+	kfree(chip->data_iface);
+	return ret;
 }
 EXPORT_SYMBOL(nand_scan_ident);
+
+int nand_setup_data_interface(struct mtd_info *mtd,
+			      const struct nand_data_interface *conf)
+{
+	struct nand_chip *chip = mtd->priv;
+	int ret;
+
+	if (!chip->setup_data_interface)
+		return -ENOTSUPP;
+
+	ret = chip->setup_data_interface(mtd, conf, false);
+	if (ret)
+		return ret;
+
+	*chip->data_iface = *conf;
+
+	return 0;
+}
+EXPORT_SYMBOL(nand_setup_data_interface);
+
+int nand_check_data_interface(struct mtd_info *mtd,
+			      const struct nand_data_interface *conf)
+{
+	struct nand_chip *chip = mtd->priv;
+
+	if (!chip->setup_data_interface)
+		return -ENOTSUPP;
+
+	return chip->setup_data_interface(mtd, conf, true);
+}
+EXPORT_SYMBOL(nand_check_data_interface);
 
 /*
  * Check if the chip configuration meet the datasheet requirements.
@@ -4530,6 +4663,9 @@ void nand_release(struct mtd_info *mtd)
 		nand_bch_free((struct nand_bch_control *)chip->ecc.priv);
 
 	mtd_device_unregister(mtd);
+
+	/* Free interface config struct */
+	kfree(chip->data_iface);
 
 	/* Free bad block table memory */
 	kfree(chip->bbt);

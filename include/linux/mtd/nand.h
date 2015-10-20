@@ -538,6 +538,70 @@ struct nand_buffers {
 	uint8_t *databuf;
 };
 
+/*
+ * struct nand_sdr_timings - SDR NAND chip timings
+ *
+ * This struct defines the timing requirements of a SDR NAND chip.
+ * These informations can be found in every NAND datasheets and the timings
+ * meaning are described in the ONFI specifications:
+ * www.onfi.org/~/media/ONFI/specs/onfi_3_1_spec.pdf (chapter 4.15 Timing
+ * Parameters)
+ *
+ * All these timings are expressed in picoseconds.
+ */
+
+struct nand_sdr_timings {
+	u32 tALH_min;
+	u32 tADL_min;
+	u32 tALS_min;
+	u32 tAR_min;
+	u32 tCEA_max;
+	u32 tCEH_min;
+	u32 tCH_min;
+	u32 tCHZ_max;
+	u32 tCLH_min;
+	u32 tCLR_min;
+	u32 tCLS_min;
+	u32 tCOH_min;
+	u32 tCS_min;
+	u32 tDH_min;
+	u32 tDS_min;
+	u32 tFEAT_max;
+	u32 tIR_min;
+	u32 tITC_max;
+	u32 tRC_min;
+	u32 tREA_max;
+	u32 tREH_min;
+	u32 tRHOH_min;
+	u32 tRHW_min;
+	u32 tRHZ_max;
+	u32 tRLOH_min;
+	u32 tRP_min;
+	u32 tRR_min;
+	u64 tRST_max;
+	u32 tWB_max;
+	u32 tWC_min;
+	u32 tWH_min;
+	u32 tWHR_min;
+	u32 tWP_min;
+	u32 tWW_min;
+};
+
+union nand_timings {
+	struct nand_sdr_timings sdr;
+};
+
+enum nand_data_interface_type {
+	NAND_SDR_IFACE,
+};
+
+struct nand_data_interface {
+	enum nand_data_interface_type type;
+	union timings {
+		struct nand_sdr_timings sdr;
+	} timings;
+};
+
 /**
  * struct nand_chip - NAND Private Flash Chip Data
  * @IO_ADDR_R:		[BOARDSPECIFIC] address to read the 8 I/O lines of the
@@ -679,6 +743,9 @@ struct nand_chip {
 	void (*manuf_cleanup)(struct mtd_info *mtd);
 	void (*set_slc_mode)(struct mtd_info *mtd, bool enable);
 	void (*fix_page)(struct mtd_info *mtd, int *page);
+	int (*setup_data_interface)(struct mtd_info *mtd,
+				    const struct nand_data_interface *conf,
+				    bool check_only);
 
 	void *manuf_priv;
 
@@ -709,6 +776,8 @@ struct nand_chip {
 		struct nand_onfi_params	onfi_params;
 		struct nand_jedec_params jedec_params;
 	};
+
+	struct nand_data_interface *data_iface;
 
 	int read_retries;
 	bool slc_mode;
@@ -988,55 +1057,6 @@ static inline int jedec_feature(struct nand_chip *chip)
 		: 0;
 }
 
-/*
- * struct nand_sdr_timings - SDR NAND chip timings
- *
- * This struct defines the timing requirements of a SDR NAND chip.
- * These informations can be found in every NAND datasheets and the timings
- * meaning are described in the ONFI specifications:
- * www.onfi.org/~/media/ONFI/specs/onfi_3_1_spec.pdf (chapter 4.15 Timing
- * Parameters)
- *
- * All these timings are expressed in picoseconds.
- */
-
-struct nand_sdr_timings {
-	u32 tALH_min;
-	u32 tADL_min;
-	u32 tALS_min;
-	u32 tAR_min;
-	u32 tCEA_max;
-	u32 tCEH_min;
-	u32 tCH_min;
-	u32 tCHZ_max;
-	u32 tCLH_min;
-	u32 tCLR_min;
-	u32 tCLS_min;
-	u32 tCOH_min;
-	u32 tCS_min;
-	u32 tDH_min;
-	u32 tDS_min;
-	u32 tFEAT_max;
-	u32 tIR_min;
-	u32 tITC_max;
-	u32 tRC_min;
-	u32 tREA_max;
-	u32 tREH_min;
-	u32 tRHOH_min;
-	u32 tRHW_min;
-	u32 tRHZ_max;
-	u32 tRLOH_min;
-	u32 tRP_min;
-	u32 tRR_min;
-	u64 tRST_max;
-	u32 tWB_max;
-	u32 tWC_min;
-	u32 tWH_min;
-	u32 tWHR_min;
-	u32 tWP_min;
-	u32 tWW_min;
-};
-
 /* get timing characteristics from ONFI timing mode. */
 const struct nand_sdr_timings *onfi_async_timing_mode_to_sdr_timings(int mode);
 
@@ -1058,4 +1078,9 @@ int nand_read_oob_std(struct mtd_info *mtd, struct nand_chip *chip, int page);
 /* Default read_oob syndrome implementation */
 int nand_read_oob_syndrome(struct mtd_info *mtd, struct nand_chip *chip,
 			   int page);
+
+int nand_setup_data_interface(struct mtd_info *mtd,
+			      const struct nand_data_interface *conf);
+int nand_check_data_interface(struct mtd_info *mtd,
+			      const struct nand_data_interface *conf);
 #endif /* __LINUX_MTD_NAND_H */

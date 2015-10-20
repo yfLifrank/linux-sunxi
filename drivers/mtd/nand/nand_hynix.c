@@ -159,11 +159,51 @@ static void h27ubg8t2b_fix_page(struct mtd_info *mtd, int *page)
 	*page = (*page & 0x7f) | ((*page >> 1) & ~0x7f);
 }
 
+static const struct nand_data_interface h27ubg8t2b_data_interface = {
+	.type = NAND_SDR_IFACE,
+	.timings.sdr = {
+		.tADL_min = 200000,
+		.tALH_min = 5000,
+		.tALS_min = 10000,
+		.tAR_min = 10000,
+		.tCEA_max = 25000,
+		.tCEH_min = 20000,
+		.tCH_min = 5000,
+		.tCHZ_max = 50000,
+		.tCLH_min = 5000,
+		.tCLR_min = 10000,
+		.tCLS_min = 10000,
+		.tCOH_min = 15000,
+		.tCS_min = 20000,
+		.tDH_min = 5000,
+		.tDS_min = 10000,
+		.tFEAT_max = 1000000,
+		.tIR_min = 0,
+		.tITC_max = 1000000,
+		.tRC_min = 20000,
+		.tREA_max = 16000,
+		.tREH_min = 8000,
+		.tRHOH_min = 15000,
+		.tRHW_min = 100000,
+		.tRHZ_max = 100000,
+		.tRLOH_min = 5000,
+		.tRP_min = 10000,
+		.tRR_min = 20000,
+		.tRST_max = 500000000,
+		.tWB_max = 100000,
+		.tWC_min = 20000,
+		.tWH_min = 10000,
+		.tWHR_min = 80000,
+		.tWP_min = 8000,
+		.tWW_min = 100000,
+	},
+};
+
 static int h27ubg8t2b_init(struct mtd_info *mtd, const uint8_t *id)
 {
 	struct nand_chip *chip = mtd->priv;
 	struct hynix_nand *hynix;
-	int i;
+	int i, ret;
 
 	hynix = kzalloc(sizeof(*hynix) +
 			ARRAY_SIZE(h27ubg8t2b_read_retry_vals) + 1,
@@ -207,7 +247,6 @@ static int h27ubg8t2b_init(struct mtd_info *mtd, const uint8_t *id)
 		hynix->read_retry.values[i + hynix->read_retry.nregs] = tmp;
 	}
 
-
 	chip->manuf_priv = hynix;
 	chip->setup_read_retry = nand_setup_read_retry_hynix;
 	chip->read_retries = 7;
@@ -217,7 +256,11 @@ static int h27ubg8t2b_init(struct mtd_info *mtd, const uint8_t *id)
 
 	nand_setup_read_retry_hynix(mtd, 0);
 
-	return 0;
+	ret = nand_setup_data_interface(mtd, &h27ubg8t2b_data_interface);
+	if (ret)
+		kfree(hynix);
+
+	return ret;
 }
 
 static int h27q_get_best_val(const u8 *buf, int size, int min_cnt)
