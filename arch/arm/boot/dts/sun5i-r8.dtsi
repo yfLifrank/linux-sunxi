@@ -101,6 +101,12 @@
 	};
 
 	soc@01c00000 {
+		tve: encoder@01c0a000 {
+			compatible = "allwinner,sun4i-a10-tv-encoder";
+			reg = <0x01c0a000 0x1000>;
+			clocks = <&ahb_gates 34>;
+		};
+
 		tcon: lcd-controller@01c0c000 {
 			compatible = "allwinner,sun4i-a10-tcon";
 			reg = <0x01c0c000 0x1000>;
@@ -135,6 +141,7 @@
 				      "backend0";
 
 			allwinner,tcon = <&tcon>;
+			allwinner,tv-encoder = <&tve>;
 
 			assigned-clocks = <&de_be_clk>;
 			assigned-clock-rates = <300000000>;
