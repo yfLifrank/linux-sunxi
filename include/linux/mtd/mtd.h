@@ -108,6 +108,18 @@ struct nand_ecclayout {
 	struct nand_oobfree oobfree[MTD_MAX_OOBFREE_ENTRIES_LARGE];
 };
 
+#define NAND_ECCLAYOUT_ECCPOS(...) { __VA_ARGS__ }
+#define NAND_ECCLAYOUT_OOBFREE(...) { __VA_ARGS__, { /* sentinel */ }, }
+#define NAND_OOBFREE(off, len) { .offset = off, .length = len }
+
+#define NAND_ECCLAYOUT(name, pos, free)					\
+	static const u32 name##_eccpos[] = pos;				\
+	static struct nand_ecclayout name = {				\
+		.eccbytes = ARRAY_SIZE(name##_eccpos),			\
+		.eccpos = pos,						\
+		.oobfree = free,					\
+	}
+
 struct module;	/* only needed for owner field in mtd_info */
 
 struct mtd_info {
