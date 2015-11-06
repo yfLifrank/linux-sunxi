@@ -761,12 +761,29 @@ static struct nand_ecclayout *brcmnand_create_layout(int ecc_level,
 	int sas;
 	int idx1, idx2;
 
-	layout = devm_kzalloc(&host->pdev->dev, sizeof(*layout), GFP_KERNEL);
-	if (!layout)
-		return NULL;
-
 	sectors = cfg->page_size / (512 << cfg->sector_size_1k);
 	sas = cfg->spare_area_size << cfg->sector_size_1k;
+
+	/*
+	 * CONTROLLER_VERSION:
+	 *   < v5.0: ECC_REQ = ceil(BCH_T * 13/8)
+	 *  >= v5.0: ECC_REQ = ceil(BCH_T * 14/8)
+	 * But we will just be conservative.
+	 */
+	req = DIV_ROUND_UP(ecc_level * 14, 8);
+	if (req >= sas) {
+		dev_err(&host->pdev->dev,
+			"error: ECC too large for OOB (ECC bytes %d, spare sector %d)\n",
+			req, sas);
+		return NULL;
+	}
+
+	/*
+	 * noobfree = 2 * sectors should work for both Hamming and non-hamming
+	 * cases.
+	 */
+	layout = devm_mtd_alloc_ecclayout(&host->pdev->dev, req * sectors,
+					  sectors * 2);
 
 	/* Hamming */
 	if (is_hamming_ecc(cfg)) {
@@ -797,21 +814,6 @@ static struct nand_ecclayout *brcmnand_create_layout(int ecc_level,
 		goto out;
 	}
 
-	/*
-	 * CONTROLLER_VERSION:
-	 *   < v5.0: ECC_REQ = ceil(BCH_T * 13/8)
-	 *  >= v5.0: ECC_REQ = ceil(BCH_T * 14/8)
-	 * But we will just be conservative.
-	 */
-	req = DIV_ROUND_UP(ecc_level * 14, 8);
-	if (req >= sas) {
-		dev_err(&host->pdev->dev,
-			"error: ECC too large for OOB (ECC bytes %d, spare sector %d)\n",
-			req, sas);
-		return NULL;
-	}
-
-	layout->eccbytes = req * sectors;
 	for (i = 0, idx1 = 0, idx2 = 0; i < sectors; i++) {
 		for (j = sas - req; j < sas && idx1 <
 				MTD_MAX_ECCPOS_ENTRIES_LARGE; j++, idx1++)
