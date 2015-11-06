@@ -149,8 +149,6 @@ struct atmel_nand_host {
 	int			*pmecc_delta;
 };
 
-static struct nand_ecclayout atmel_pmecc_oobinfo;
-
 /*
  * Enable NAND.
  */
@@ -1253,11 +1251,18 @@ static int atmel_pmecc_nand_init_params(struct platform_device *pdev,
 			err_no = -EINVAL;
 			goto err;
 		}
-		pmecc_config_ecc_layout(&atmel_pmecc_oobinfo,
+
+		nand_chip->ecc.layout = devm_mtd_alloc_ecclayout(host->dev,
+						nand_chip->ecc.total, 1);
+		if (!nand_chip->ecc.layout) {
+			err_no = -ENOMEM;
+			goto err;
+		}
+
+		pmecc_config_ecc_layout(nand_chip->ecc.layout,
 					mtd->oobsize,
 					nand_chip->ecc.total);
 
-		nand_chip->ecc.layout = &atmel_pmecc_oobinfo;
 		break;
 	default:
 		dev_warn(host->dev,
