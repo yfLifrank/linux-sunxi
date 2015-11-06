@@ -73,11 +73,10 @@ MODULE_PARM_DESC(reliable_mode, "Set the docg3 mode (0=normal MLC, 1=fast, "
  * @eccpos: ecc positions (byte 7 is Hamming ECC, byte 8-14 are BCH ECC)
  * @oobfree: free pageinfo bytes (byte 0 until byte 6, byte 15
  */
-static struct nand_ecclayout docg3_oobinfo = {
-	.eccbytes = 8,
-	.eccpos = {7, 8, 9, 10, 11, 12, 13, 14},
-	.oobfree = {{0, 7}, {15, 1} },
-};
+NAND_ECCLAYOUT(docg3_oobinfo,
+	       NAND_ECCLAYOUT_ECCPOS(7, 8, 9, 10, 11, 12, 13, 14),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(0, 7),
+				      NAND_OOBFREE(15, 1)));
 
 static inline u8 doc_readb(struct docg3 *docg3, u16 reg)
 {
