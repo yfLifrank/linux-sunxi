@@ -711,9 +711,23 @@ static int __init s3c_nand_copy_set(struct s3c2410_nand_set *set)
 	}
 
 	if (set->ecc_layout) {
-		ptr = kmemdup(set->ecc_layout,
-			      sizeof(struct nand_ecclayout), GFP_KERNEL);
-		set->ecc_layout = ptr;
+		int noobfree = 0;
+		struct nand_ecclayout *layout;
+
+		for (noobfree = 0; set->ecc_layout->oobfree[noobfree].length;
+		     noobfree++)
+			;
+
+		layout = mtd_alloc_ecclayout(set->ecc_layout->eccbytes,
+					     noobfree);
+		if (!layout)
+			return -ENOMEM;
+
+		memcpy(layout->eccpos, set->ecc_layout->eccpos,
+		       set->ecc_layout->eccbytes * sizeof(u32));
+		memcpy(layout->oobfree, set->ecc_layout->oobfree,
+		       noobfree * sizeof(nand_oobfree);
+		set->ecc_layout = layout;
 
 		if (!ptr)
 			return -ENOMEM;
