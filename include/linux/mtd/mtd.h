@@ -120,6 +120,11 @@ struct nand_ecclayout {
 		.oobfree = free,					\
 	}
 
+struct nand_ecclayout *mtd_alloc_ecclayout(int eccbytes, int noobfree);
+void mtd_free_ecclayout(struct nand_ecclayout *layout);
+struct nand_ecclayout *devm_mtd_alloc_ecclayout(struct device *dev,
+						int eccbytes, int noobfree);
+
 struct module;	/* only needed for owner field in mtd_info */
 
 struct mtd_info {

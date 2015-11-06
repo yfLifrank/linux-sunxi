@@ -1239,6 +1239,43 @@ void *mtd_kmalloc_up_to(const struct mtd_info *mtd, size_t *size)
 }
 EXPORT_SYMBOL_GPL(mtd_kmalloc_up_to);
 
+struct nand_ecclayout *mtd_alloc_ecclayout(int eccbytes, int noobfree)
+{
+	struct nand_ecclayout *layout;
+
+	layout = kzalloc(sizeof(struct nand_ecclayout), GFP_KERNEL);
+	if (!layout)
+		return NULL;
+
+	layout->eccbytes = eccbytes;
+
+	return layout;
+}
+EXPORT_SYMBOL_GPL(mtd_alloc_ecclayout);
+
+struct nand_ecclayout *devm_mtd_alloc_ecclayout(struct device *dev,
+						int eccbytes, int noobfree)
+{
+	struct nand_ecclayout *layout;
+
+	layout = devm_kzalloc(dev, sizeof(struct nand_ecclayout), GFP_KERNEL);
+	if (!layout)
+		return NULL;
+
+	layout->eccbytes = eccbytes;
+
+	return layout;
+}
+EXPORT_SYMBOL_GPL(devm_mtd_alloc_ecclayout);
+
+void mtd_free_ecclayout(struct nand_ecclayout *layout)
+{
+	kfree(layout);
+}
+EXPORT_SYMBOL_GPL(mtd_free_ecclayout);
+
+
+
 #ifdef CONFIG_PROC_FS
 
 /*====================================================================*/
