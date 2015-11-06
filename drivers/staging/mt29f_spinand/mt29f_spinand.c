@@ -42,24 +42,14 @@ static inline struct spinand_state *mtd_to_state(struct mtd_info *mtd)
 static int enable_hw_ecc;
 static int enable_read_hw_ecc;
 
-static struct nand_ecclayout spinand_oob_64 = {
-	.eccbytes = 24,
-	.eccpos = {
-		1, 2, 3, 4, 5, 6,
-		17, 18, 19, 20, 21, 22,
-		33, 34, 35, 36, 37, 38,
-		49, 50, 51, 52, 53, 54, },
-	.oobfree = {
-		{.offset = 8,
-			.length = 8},
-		{.offset = 24,
-			.length = 8},
-		{.offset = 40,
-			.length = 8},
-		{.offset = 56,
-			.length = 8},
-	}
-};
+NAND_ECCLAYOUT(spinand_oob_64,
+	       NAND_ECCLAYOUT_ECCPOS(1, 2, 3, 4, 5, 6, 17, 18,
+				     19, 20, 21, 22, 33, 34, 35, 36,
+				     37, 38, 49, 50, 51, 52, 53, 54),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(8, 8),
+				      NAND_OOBFREE(24, 8),
+				      NAND_OOBFREE(40, 8),
+				      NAND_OOBFREE(56, 8)));
 #endif
 
 /*
