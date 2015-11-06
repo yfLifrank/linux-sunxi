@@ -139,23 +139,15 @@ struct lpc32xx_nand_cfg_mlc {
 	unsigned num_parts;
 };
 
-static struct nand_ecclayout lpc32xx_nand_oob = {
-	.eccbytes = 40,
-	.eccpos = { 6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
-		   22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-		   38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-		   54, 55, 56, 57, 58, 59, 60, 61, 62, 63 },
-	.oobfree = {
-		{ .offset = 0,
-		  .length = 6, },
-		{ .offset = 16,
-		  .length = 6, },
-		{ .offset = 32,
-		  .length = 6, },
-		{ .offset = 48,
-		  .length = 6, },
-		},
-};
+NAND_ECCLAYOUT(lpc32xx_nand_oob,
+	       NAND_ECCLAYOUT_ECCPOS(6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+				     22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+				     38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+				     54, 55, 56, 57, 58, 59, 60, 61, 62, 63),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(0, 6),
+				      NAND_OOBFREE(16, 6),
+				      NAND_OOBFREE(32, 6),
+				      NAND_OOBFREE(48, 6)));
 
 static struct nand_bbt_descr lpc32xx_nand_bbt = {
 	.options = NAND_BBT_ABSPAGE | NAND_BBT_2BIT | NAND_BBT_NO_OOB |

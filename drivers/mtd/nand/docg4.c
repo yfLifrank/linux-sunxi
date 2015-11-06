@@ -222,11 +222,9 @@ struct docg4_priv {
  * Bytes 8 - 14 are hw-generated ecc covering entire page + oob bytes 0 - 14.
  * Byte 15 (the last) is used by the driver as a "page written" flag.
  */
-static struct nand_ecclayout docg4_oobinfo = {
-	.eccbytes = 9,
-	.eccpos = {7, 8, 9, 10, 11, 12, 13, 14, 15},
-	.oobfree = { {.offset = 2, .length = 5} }
-};
+NAND_ECCLAYOUT(docg4_oobinfo,
+	       NAND_ECCLAYOUT_ECCPOS(7, 8, 9, 10, 11, 12, 13, 14, 15),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 5)));
 
 /*
  * The device has a nop register which M-Sys claims is for the purpose of

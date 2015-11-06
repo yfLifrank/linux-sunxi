@@ -202,71 +202,55 @@ struct mxc_nand_host {
 };
 
 /* OOB placement block for use with hardware ecc generation */
-static struct nand_ecclayout nandv1_hw_eccoob_smallpage = {
-	.eccbytes = 5,
-	.eccpos = {6, 7, 8, 9, 10},
-	.oobfree = {{0, 5}, {12, 4}, }
-};
+NAND_ECCLAYOUT(nandv1_hw_eccoob_smallpage,
+	       NAND_ECCLAYOUT_ECCPOS(6, 7, 8, 9, 10),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(0, 5),
+				      NAND_OOBFREE(12, 4)));
 
-static struct nand_ecclayout nandv1_hw_eccoob_largepage = {
-	.eccbytes = 20,
-	.eccpos = {6, 7, 8, 9, 10, 22, 23, 24, 25, 26,
-		   38, 39, 40, 41, 42, 54, 55, 56, 57, 58},
-	.oobfree = {{2, 4}, {11, 10}, {27, 10}, {43, 10}, {59, 5}, }
-};
+NAND_ECCLAYOUT(nandv1_hw_eccoob_largepage,
+	       NAND_ECCLAYOUT_ECCPOS(6, 7, 8, 9, 10, 22, 23, 24, 25, 26,
+				     38, 39, 40, 41, 42, 54, 55, 56, 57, 58),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 4),
+				      NAND_OOBFREE(11, 10),
+				      NAND_OOBFREE(27, 10),
+				      NAND_OOBFREE(43, 10),
+				      NAND_OOBFREE(59, 5)));
 
 /* OOB description for 512 byte pages with 16 byte OOB */
-static struct nand_ecclayout nandv2_hw_eccoob_smallpage = {
-	.eccbytes = 1 * 9,
-	.eccpos = {
-		 7,  8,  9, 10, 11, 12, 13, 14, 15
-	},
-	.oobfree = {
-		{.offset = 0, .length = 5}
-	}
-};
+NAND_ECCLAYOUT(nandv2_hw_eccoob_smallpage,
+	       NAND_ECCLAYOUT_ECCPOS(7, 8, 9, 10, 11, 12, 13, 14, 15),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(0, 5)));
 
 /* OOB description for 2048 byte pages with 64 byte OOB */
-static struct nand_ecclayout nandv2_hw_eccoob_largepage = {
-	.eccbytes = 4 * 9,
-	.eccpos = {
-		 7,  8,  9, 10, 11, 12, 13, 14, 15,
-		23, 24, 25, 26, 27, 28, 29, 30, 31,
-		39, 40, 41, 42, 43, 44, 45, 46, 47,
-		55, 56, 57, 58, 59, 60, 61, 62, 63
-	},
-	.oobfree = {
-		{.offset = 2, .length = 4},
-		{.offset = 16, .length = 7},
-		{.offset = 32, .length = 7},
-		{.offset = 48, .length = 7}
-	}
-};
+NAND_ECCLAYOUT(nandv2_hw_eccoob_largepage,
+	       NAND_ECCLAYOUT_ECCPOS(7, 8, 9, 10, 11, 12, 13, 14, 15,
+				     23, 24, 25, 26, 27, 28, 29, 30, 31,
+				     39, 40, 41, 42, 43, 44, 45, 46, 47,
+				     55, 56, 57, 58, 59, 60, 61, 62, 63),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 4),
+				      NAND_OOBFREE(16, 7),
+				      NAND_OOBFREE(32, 7),
+				      NAND_OOBFREE(48, 7)));
 
 /* OOB description for 4096 byte pages with 128 byte OOB */
-static struct nand_ecclayout nandv2_hw_eccoob_4k = {
-	.eccbytes = 8 * 9,
-	.eccpos = {
-		7,  8,  9, 10, 11, 12, 13, 14, 15,
-		23, 24, 25, 26, 27, 28, 29, 30, 31,
-		39, 40, 41, 42, 43, 44, 45, 46, 47,
-		55, 56, 57, 58, 59, 60, 61, 62, 63,
-		71, 72, 73, 74, 75, 76, 77, 78, 79,
-		87, 88, 89, 90, 91, 92, 93, 94, 95,
-		103, 104, 105, 106, 107, 108, 109, 110, 111,
-		119, 120, 121, 122, 123, 124, 125, 126, 127,
-	},
-	.oobfree = {
-		{.offset = 2, .length = 4},
-		{.offset = 16, .length = 7},
-		{.offset = 32, .length = 7},
-		{.offset = 48, .length = 7},
-		{.offset = 64, .length = 7},
-		{.offset = 80, .length = 7},
-		{.offset = 96, .length = 7},
-		{.offset = 112, .length = 7},
-	}
-};
+NAND_ECCLAYOUT(nandv2_hw_eccoob_4k,
+	       NAND_ECCLAYOUT_ECCPOS(7, 8, 9, 10, 11, 12, 13, 14,
+				     15, 23, 24, 25, 26, 27, 28, 29,
+				     30, 31, 39, 40, 41, 42, 43, 44,
+				     45, 46, 47, 55, 56, 57, 58, 59,
+				     60, 61, 62, 63, 71, 72, 73, 74,
+				     75, 76, 77, 78, 79, 87, 88, 89,
+				     90, 91, 92, 93, 94, 95, 103, 104,
+				     105, 106, 107, 108, 109, 110, 111, 119,
+				     120, 121, 122, 123, 124, 125, 126, 127),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 4),
+				      NAND_OOBFREE(16, 7),
+				      NAND_OOBFREE(32, 7),
+				      NAND_OOBFREE(48, 7),
+				      NAND_OOBFREE(64, 7),
+				      NAND_OOBFREE(80, 7),
+				      NAND_OOBFREE(96, 7),
+				      NAND_OOBFREE(112, 7)));
 
 static const char * const part_probes[] = {
 	"cmdlinepart", "RedBoot", "ofpart", NULL };

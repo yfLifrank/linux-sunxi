@@ -452,11 +452,10 @@ static int cafe_nand_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 	return max_bitflips;
 }
 
-static struct nand_ecclayout cafe_oobinfo_2048 = {
-	.eccbytes = 14,
-	.eccpos = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
-	.oobfree = {{14, 50}}
-};
+NAND_ECCLAYOUT(cafe_oobinfo_2048,
+	       NAND_ECCLAYOUT_ECCPOS(0, 1, 2, 3, 4, 5, 6,
+				     7, 8, 9, 10, 11, 12, 13),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(14, 50)));
 
 /* Ick. The BBT code really ought to be able to work this bit out
    for itself from the above, at least for the 2KiB case */
@@ -487,11 +486,10 @@ static struct nand_bbt_descr cafe_bbt_mirror_descr_2048 = {
 	.pattern = cafe_mirror_pattern_2048
 };
 
-static struct nand_ecclayout cafe_oobinfo_512 = {
-	.eccbytes = 14,
-	.eccpos = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
-	.oobfree = {{14, 2}}
-};
+NAND_ECCLAYOUT(cafe_oobinfo_512,
+	       NAND_ECCLAYOUT_ECCPOS(0, 1, 2, 3, 4, 5, 6,
+				     7, 8, 9, 10, 11, 12, 13),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(14, 2)));
 
 static struct nand_bbt_descr cafe_bbt_main_descr_512 = {
 	.options = NAND_BBT_LASTBLOCK | NAND_BBT_CREATE | NAND_BBT_WRITE

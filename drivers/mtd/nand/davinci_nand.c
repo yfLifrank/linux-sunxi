@@ -487,64 +487,51 @@ static int nand_davinci_dev_ready(struct mtd_info *mtd)
  * ten ECC bytes plus the manufacturer's bad block marker byte, and
  * and not overlapping the default BBT markers.
  */
-static struct nand_ecclayout hwecc4_small = {
-	.eccbytes = 10,
-	.eccpos = { 0, 1, 2, 3, 4,
-		/* offset 5 holds the badblock marker */
-		6, 7,
-		13, 14, 15, },
-	.oobfree = {
-		{.offset = 8, .length = 5, },
-		{.offset = 16, },
-	},
-};
+NAND_ECCLAYOUT(hwecc4_small,
+	       /* offset 5 holds the badblock marker */
+	       NAND_ECCLAYOUT_ECCPOS(0, 1, 2, 3, 4, 6, 7, 13, 14, 15),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(8, 5)));
 
 /* An ECC layout for using 4-bit ECC with large-page (2048bytes) flash,
  * storing ten ECC bytes plus the manufacturer's bad block marker byte,
  * and not overlapping the default BBT markers.
  */
-static struct nand_ecclayout hwecc4_2048 = {
-	.eccbytes = 40,
-	.eccpos = {
-		/* at the end of spare sector */
-		24, 25, 26, 27, 28, 29,	30, 31, 32, 33,
-		34, 35, 36, 37, 38, 39,	40, 41, 42, 43,
-		44, 45, 46, 47, 48, 49, 50, 51, 52, 53,
-		54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
-		},
-	.oobfree = {
-		/* 2 bytes at offset 0 hold manufacturer badblock markers */
-		{.offset = 2, .length = 22, },
-		/* 5 bytes at offset 8 hold BBT markers */
-		/* 8 bytes at offset 16 hold JFFS2 clean markers */
-	},
-};
+NAND_ECCLAYOUT(hwecc4_2048,
+	       /* at the end of spare sector */
+	       NAND_ECCLAYOUT_ECCPOS(24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+				     34, 35, 36, 37, 38, 39, 40, 41, 42, 43,
+				     44, 45, 46, 47, 48, 49, 50, 51, 52, 53,
+				     54, 55, 56, 57, 58, 59, 60, 61, 62, 63),
+               /*
+		* 2 bytes at offset 0 hold manufacturer badblock markers
+		* 5 bytes at offset 8 hold BBT markers
+		* 8 bytes at offset 16 hold JFFS2 clean markers
+		*/
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 22)));
 
 /*
  * An ECC layout for using 4-bit ECC with large-page (4096bytes) flash,
  * storing ten ECC bytes plus the manufacturer's bad block marker byte,
  * and not overlapping the default BBT markers.
  */
-static struct nand_ecclayout hwecc4_4096 = {
-	.eccbytes = 80,
-	.eccpos = {
-		/* at the end of spare sector */
-		48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
-		58, 59, 60, 61, 62, 63, 64, 65, 66, 67,
-		68, 69, 70, 71, 72, 73, 74, 75, 76, 77,
-		78, 79, 80, 81, 82, 83, 84, 85, 86, 87,
-		88, 89, 90, 91, 92, 93, 94, 95, 96, 97,
-		98, 99, 100, 101, 102, 103, 104, 105, 106, 107,
-		108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
-		118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
-	},
-	.oobfree = {
-		/* 2 bytes at offset 0 hold manufacturer badblock markers */
-		{.offset = 2, .length = 46, },
-		/* 5 bytes at offset 8 hold BBT markers */
-		/* 8 bytes at offset 16 hold JFFS2 clean markers */
-	},
-};
+NAND_ECCLAYOUT(hwecc4_4096,
+	       /* at the end of spare sector */
+	       NAND_ECCLAYOUT_ECCPOS(48, 49, 50, 51, 52, 53, 54, 55,
+				     56, 57, 58, 59, 60, 61, 62, 63,
+				     64, 65, 66, 67, 68, 69, 70, 71,
+				     72, 73, 74, 75, 76, 77, 78, 79,
+				     80, 81, 82, 83, 84, 85, 86, 87,
+				     88, 89, 90, 91, 92, 93, 94, 95,
+				     96, 97, 98, 99, 100, 101, 102, 103,
+				     104, 105, 106, 107, 108, 109, 110, 111,
+				     112, 113, 114, 115, 116, 117, 118, 119,
+				     120, 121, 122, 123, 124, 125, 126, 127),
+               /*
+		* 2 bytes at offset 0 hold manufacturer badblock markers
+		* 5 bytes at offset 8 hold BBT markers
+		* 8 bytes at offset 16 hold JFFS2 clean markers
+		*/
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 46)));
 
 #if defined(CONFIG_OF)
 static const struct of_device_id davinci_nand_of_match[] = {

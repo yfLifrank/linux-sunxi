@@ -632,9 +632,12 @@ static void hisi_nfc_host_init(struct hinfc_host *host)
 	hinfc_write(host, HINFC504_INTEN_DMA, HINFC504_INTEN);
 }
 
-static struct nand_ecclayout nand_ecc_2K_16bits = {
-	.oobfree = { {2, 6} },
-};
+/*
+ * FIXME: The ECC layout is not defined here: the NAND_ECCLAYOUT_ECCPOS(8)
+ * is just here to make the NAND_ECCLAYOUT() macro happy.
+ */
+NAND_ECCLAYOUT(nand_ecc_2K_16bits, NAND_ECCLAYOUT_ECCPOS(8),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 6)));
 
 static int hisi_nfc_ecc_probe(struct hinfc_host *host)
 {

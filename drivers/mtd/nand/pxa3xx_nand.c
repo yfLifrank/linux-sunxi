@@ -313,40 +313,32 @@ static struct nand_bbt_descr bbt_mirror_descr = {
 	.pattern = bbt_mirror_pattern
 };
 
-static struct nand_ecclayout ecc_layout_2KB_bch4bit = {
-	.eccbytes = 32,
-	.eccpos = {
-		32, 33, 34, 35, 36, 37, 38, 39,
-		40, 41, 42, 43, 44, 45, 46, 47,
-		48, 49, 50, 51, 52, 53, 54, 55,
-		56, 57, 58, 59, 60, 61, 62, 63},
-	.oobfree = { {2, 30} }
-};
+NAND_ECCLAYOUT(ecc_layout_2KB_bch4bit,
+	       NAND_ECCLAYOUT_ECCPOS(32, 33, 34, 35, 36, 37, 38, 39,
+				     40, 41, 42, 43, 44, 45, 46, 47,
+				     48, 49, 50, 51, 52, 53, 54, 55,
+				     56, 57, 58, 59, 60, 61, 62, 63),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 30)));
 
-static struct nand_ecclayout ecc_layout_4KB_bch4bit = {
-	.eccbytes = 64,
-	.eccpos = {
-		32,  33,  34,  35,  36,  37,  38,  39,
-		40,  41,  42,  43,  44,  45,  46,  47,
-		48,  49,  50,  51,  52,  53,  54,  55,
-		56,  57,  58,  59,  60,  61,  62,  63,
-		96,  97,  98,  99,  100, 101, 102, 103,
-		104, 105, 106, 107, 108, 109, 110, 111,
-		112, 113, 114, 115, 116, 117, 118, 119,
-		120, 121, 122, 123, 124, 125, 126, 127},
-	/* Bootrom looks in bytes 0 & 5 for bad blocks */
-	.oobfree = { {6, 26}, { 64, 32} }
-};
+NAND_ECCLAYOUT(ecc_layout_4KB_bch4bit,
+	       NAND_ECCLAYOUT_ECCPOS(32, 33, 34, 35, 36, 37, 38, 39,
+				     40, 41, 42, 43, 44, 45, 46, 47,
+				     48, 49, 50, 51, 52, 53, 54, 55,
+				     56, 57, 58, 59, 60, 61, 62, 63,
+				     96, 97, 98, 99, 100, 101, 102, 103,
+				     104, 105, 106, 107, 108, 109, 110, 111,
+				     112, 113, 114, 115, 116, 117, 118, 119,
+				     120, 121, 122, 123, 124, 125, 126, 127),
+	       /* Bootrom looks in bytes 0 & 5 for bad blocks */
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(6, 26),
+				      NAND_OOBFREE(64, 32)));
 
-static struct nand_ecclayout ecc_layout_4KB_bch8bit = {
-	.eccbytes = 128,
-	.eccpos = {
-		32,  33,  34,  35,  36,  37,  38,  39,
-		40,  41,  42,  43,  44,  45,  46,  47,
-		48,  49,  50,  51,  52,  53,  54,  55,
-		56,  57,  58,  59,  60,  61,  62,  63},
-	.oobfree = { }
-};
+NAND_ECCLAYOUT(ecc_layout_4KB_bch8bit,
+	       NAND_ECCLAYOUT_ECCPOS(32, 33, 34, 35, 36, 37, 38, 39,
+				     40, 41, 42, 43, 44, 45, 46, 47,
+				     48, 49, 50, 51, 52, 53, 54, 55,
+				     56, 57, 58, 59, 60, 61, 62, 63),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(0, 0)));
 
 #define NDTR0_tCH(c)	(min((c), 7) << 19)
 #define NDTR0_tCS(c)	(min((c), 7) << 16)

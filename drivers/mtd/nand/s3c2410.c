@@ -85,11 +85,9 @@
 /* new oob placement block for use with hardware ecc generation
  */
 
-static struct nand_ecclayout nand_hw_eccoob = {
-	.eccbytes = 3,
-	.eccpos = {0, 1, 2},
-	.oobfree = {{8, 8}}
-};
+NAND_ECCLAYOUT(nand_hw_eccoob,
+	       NAND_ECCLAYOUT_ECCPOS(0, 1, 2),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(8, 8)));
 
 /* controller and mtd information */
 

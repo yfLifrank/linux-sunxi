@@ -12,15 +12,11 @@
 #include <linux/sizes.h>
 #include "sm_common.h"
 
-static struct nand_ecclayout nand_oob_sm = {
-	.eccbytes = 6,
-	.eccpos = {8, 9, 10, 13, 14, 15},
-	.oobfree = {
-		{.offset = 0 , .length = 4}, /* reserved */
-		{.offset = 6 , .length = 2}, /* LBA1 */
-		{.offset = 11, .length = 2}  /* LBA2 */
-	}
-};
+NAND_ECCLAYOUT(nand_oob_sm,
+	       NAND_ECCLAYOUT_ECCPOS(8, 9, 10, 13, 14, 15),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(0, 4), /* reserved */
+				      NAND_OOBFREE(6, 2), /* LBA1 */
+				      NAND_OOBFREE(11, 2))); /* LBA2 */
 
 /* NOTE: This layout is is not compatabable with SmartMedia, */
 /* because the 256 byte devices have page depenent oob layout */
@@ -28,15 +24,10 @@ static struct nand_ecclayout nand_oob_sm = {
 /* If you use smftl, it will bypass this and work correctly */
 /* If you not, then you break SmartMedia compliance anyway */
 
-static struct nand_ecclayout nand_oob_sm_small = {
-	.eccbytes = 3,
-	.eccpos = {0, 1, 2},
-	.oobfree = {
-		{.offset = 3 , .length = 2}, /* reserved */
-		{.offset = 6 , .length = 2}, /* LBA1 */
-	}
-};
-
+NAND_ECCLAYOUT(nand_oob_sm_small,
+	       NAND_ECCLAYOUT_ECCPOS(0, 1, 2),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(3, 2), /* reserved */
+				      NAND_OOBFREE(6, 2))); /* LBA1 */
 
 static int sm_block_markbad(struct mtd_info *mtd, loff_t ofs)
 {

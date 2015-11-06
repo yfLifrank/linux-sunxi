@@ -993,11 +993,10 @@ static int doc200x_correct_data(struct mtd_info *mtd, u_char *dat,
  * safer.  The only problem with it is that any code that parses oobfree must
  * be able to handle out-of-order segments.
  */
-static struct nand_ecclayout doc200x_oobinfo = {
-	.eccbytes = 6,
-	.eccpos = {0, 1, 2, 3, 4, 5},
-	.oobfree = {{8, 8}, {6, 2}}
-};
+NAND_ECCLAYOUT(doc200x_oobinfo,
+	       NAND_ECCLAYOUT_ECCPOS(0, 1, 2, 3, 4, 5),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(8, 8),
+				      NAND_OOBFREE(6, 2)));
 
 /* Find the (I)NFTL Media Header, and optionally also the mirror media header.
    On successful return, buf will contain a copy of the media header for

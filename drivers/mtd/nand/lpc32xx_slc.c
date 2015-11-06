@@ -146,14 +146,10 @@
  * NAND ECC Layout for small page NAND devices
  * Note: For large and huge page devices, the default layouts are used
  */
-static struct nand_ecclayout lpc32xx_nand_oob_16 = {
-	.eccbytes = 6,
-	.eccpos = {10, 11, 12, 13, 14, 15},
-	.oobfree = {
-		{ .offset = 0, .length = 4 },
-		{ .offset = 6, .length = 4 },
-	},
-};
+NAND_ECCLAYOUT(lpc32xx_nand_oob_16,
+	       NAND_ECCLAYOUT_ECCPOS(10, 11, 12, 13, 14, 15),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(0, 4),
+				      NAND_OOBFREE(6, 4)));
 
 static u8 bbt_pattern[] = {'B', 'b', 't', '0' };
 static u8 mirror_pattern[] = {'1', 't', 'b', 'B' };

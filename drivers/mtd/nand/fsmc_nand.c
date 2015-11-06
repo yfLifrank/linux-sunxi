@@ -39,211 +39,163 @@
 #include <linux/amba/bus.h>
 #include <mtd/mtd-abi.h>
 
-static struct nand_ecclayout fsmc_ecc1_128_layout = {
-	.eccbytes = 24,
-	.eccpos = {2, 3, 4, 18, 19, 20, 34, 35, 36, 50, 51, 52,
-		66, 67, 68, 82, 83, 84, 98, 99, 100, 114, 115, 116},
-	.oobfree = {
-		{.offset = 8, .length = 8},
-		{.offset = 24, .length = 8},
-		{.offset = 40, .length = 8},
-		{.offset = 56, .length = 8},
-		{.offset = 72, .length = 8},
-		{.offset = 88, .length = 8},
-		{.offset = 104, .length = 8},
-		{.offset = 120, .length = 8}
-	}
-};
+NAND_ECCLAYOUT(fsmc_ecc1_128_layout,
+	       NAND_ECCLAYOUT_ECCPOS(2, 3, 4, 18, 19, 20, 34, 35,
+				     36, 50, 51, 52, 66, 67, 68, 82,
+				     83, 84, 98, 99, 100, 114, 115, 116),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(8, 8),
+				      NAND_OOBFREE(24, 8),
+				      NAND_OOBFREE(40, 8),
+				      NAND_OOBFREE(56, 8),
+				      NAND_OOBFREE(72, 8),
+				      NAND_OOBFREE(88, 8),
+				      NAND_OOBFREE(104, 8),
+				      NAND_OOBFREE(120, 8)));
 
-static struct nand_ecclayout fsmc_ecc1_64_layout = {
-	.eccbytes = 12,
-	.eccpos = {2, 3, 4, 18, 19, 20, 34, 35, 36, 50, 51, 52},
-	.oobfree = {
-		{.offset = 8, .length = 8},
-		{.offset = 24, .length = 8},
-		{.offset = 40, .length = 8},
-		{.offset = 56, .length = 8},
-	}
-};
+NAND_ECCLAYOUT(fsmc_ecc1_64_layout,
+	       NAND_ECCLAYOUT_ECCPOS(2, 3, 4, 18, 19, 20,
+				     34, 35, 36, 50, 51, 52),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(8, 8),
+				      NAND_OOBFREE(24, 8),
+				      NAND_OOBFREE(40, 8),
+				      NAND_OOBFREE(56, 8)));
 
-static struct nand_ecclayout fsmc_ecc1_16_layout = {
-	.eccbytes = 3,
-	.eccpos = {2, 3, 4},
-	.oobfree = {
-		{.offset = 8, .length = 8},
-	}
-};
+NAND_ECCLAYOUT(fsmc_ecc1_16_layout,
+	       NAND_ECCLAYOUT_ECCPOS(2, 3, 4),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(8, 8)));
 
 /*
  * ECC4 layout for NAND of pagesize 8192 bytes & OOBsize 256 bytes. 13*16 bytes
  * of OB size is reserved for ECC, Byte no. 0 & 1 reserved for bad block and 46
  * bytes are free for use.
  */
-static struct nand_ecclayout fsmc_ecc4_256_layout = {
-	.eccbytes = 208,
-	.eccpos = {  2,   3,   4,   5,   6,   7,   8,
-		9,  10,  11,  12,  13,  14,
-		18,  19,  20,  21,  22,  23,  24,
-		25,  26,  27,  28,  29,  30,
-		34,  35,  36,  37,  38,  39,  40,
-		41,  42,  43,  44,  45,  46,
-		50,  51,  52,  53,  54,  55,  56,
-		57,  58,  59,  60,  61,  62,
-		66,  67,  68,  69,  70,  71,  72,
-		73,  74,  75,  76,  77,  78,
-		82,  83,  84,  85,  86,  87,  88,
-		89,  90,  91,  92,  93,  94,
-		98,  99, 100, 101, 102, 103, 104,
-		105, 106, 107, 108, 109, 110,
-		114, 115, 116, 117, 118, 119, 120,
-		121, 122, 123, 124, 125, 126,
-		130, 131, 132, 133, 134, 135, 136,
-		137, 138, 139, 140, 141, 142,
-		146, 147, 148, 149, 150, 151, 152,
-		153, 154, 155, 156, 157, 158,
-		162, 163, 164, 165, 166, 167, 168,
-		169, 170, 171, 172, 173, 174,
-		178, 179, 180, 181, 182, 183, 184,
-		185, 186, 187, 188, 189, 190,
-		194, 195, 196, 197, 198, 199, 200,
-		201, 202, 203, 204, 205, 206,
-		210, 211, 212, 213, 214, 215, 216,
-		217, 218, 219, 220, 221, 222,
-		226, 227, 228, 229, 230, 231, 232,
-		233, 234, 235, 236, 237, 238,
-		242, 243, 244, 245, 246, 247, 248,
-		249, 250, 251, 252, 253, 254
-	},
-	.oobfree = {
-		{.offset = 15, .length = 3},
-		{.offset = 31, .length = 3},
-		{.offset = 47, .length = 3},
-		{.offset = 63, .length = 3},
-		{.offset = 79, .length = 3},
-		{.offset = 95, .length = 3},
-		{.offset = 111, .length = 3},
-		{.offset = 127, .length = 3},
-		{.offset = 143, .length = 3},
-		{.offset = 159, .length = 3},
-		{.offset = 175, .length = 3},
-		{.offset = 191, .length = 3},
-		{.offset = 207, .length = 3},
-		{.offset = 223, .length = 3},
-		{.offset = 239, .length = 3},
-		{.offset = 255, .length = 1}
-	}
-};
+NAND_ECCLAYOUT(fsmc_ecc4_256_layout,
+	       NAND_ECCLAYOUT_ECCPOS(2, 3, 4, 5, 6, 7, 8, 9,
+				     10, 11, 12, 13, 14, 18, 19, 20,
+				     21, 22, 23, 24, 25, 26, 27, 28,
+				     29, 30, 34, 35, 36, 37, 38, 39,
+				     40, 41, 42, 43, 44, 45, 46, 50,
+				     51, 52, 53, 54, 55, 56, 57, 58,
+				     59, 60, 61, 62, 66, 67, 68, 69,
+				     70, 71, 72, 73, 74, 75, 76, 77,
+				     78, 82, 83, 84, 85, 86, 87, 88,
+				     89, 90, 91, 92, 93, 94, 98, 99,
+				     100, 101, 102, 103, 104, 105, 106, 107,
+				     108, 109, 110, 114, 115, 116, 117, 118,
+				     119, 120, 121, 122, 123, 124, 125, 126,
+				     130, 131, 132, 133, 134, 135, 136, 137,
+				     138, 139, 140, 141, 142, 146, 147, 148,
+				     149, 150, 151, 152, 153, 154, 155, 156,
+				     157, 158, 162, 163, 164, 165, 166, 167,
+				     168, 169, 170, 171, 172, 173, 174, 178,
+				     179, 180, 181, 182, 183, 184, 185, 186,
+				     187, 188, 189, 190, 194, 195, 196, 197,
+				     198, 199, 200, 201, 202, 203, 204, 205,
+				     206, 210, 211, 212, 213, 214, 215, 216,
+				     217, 218, 219, 220, 221, 222, 226, 227,
+				     228, 229, 230, 231, 232, 233, 234, 235,
+				     236, 237, 238, 242, 243, 244, 245, 246,
+				     247, 248, 249, 250, 251, 252, 253, 254),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(15, 3),
+				      NAND_OOBFREE(31, 3),
+				      NAND_OOBFREE(47, 3),
+				      NAND_OOBFREE(63, 3),
+				      NAND_OOBFREE(79, 3),
+				      NAND_OOBFREE(95, 3),
+				      NAND_OOBFREE(111, 3),
+				      NAND_OOBFREE(127, 3),
+				      NAND_OOBFREE(143, 3),
+				      NAND_OOBFREE(159, 3),
+				      NAND_OOBFREE(175, 3),
+				      NAND_OOBFREE(191, 3),
+				      NAND_OOBFREE(207, 3),
+				      NAND_OOBFREE(223, 3),
+				      NAND_OOBFREE(239, 3),
+				      NAND_OOBFREE(255, 1)));
 
 /*
  * ECC4 layout for NAND of pagesize 4096 bytes & OOBsize 224 bytes. 13*8 bytes
  * of OOB size is reserved for ECC, Byte no. 0 & 1 reserved for bad block & 118
  * bytes are free for use.
  */
-static struct nand_ecclayout fsmc_ecc4_224_layout = {
-	.eccbytes = 104,
-	.eccpos = {  2,   3,   4,   5,   6,   7,   8,
-		9,  10,  11,  12,  13,  14,
-		18,  19,  20,  21,  22,  23,  24,
-		25,  26,  27,  28,  29,  30,
-		34,  35,  36,  37,  38,  39,  40,
-		41,  42,  43,  44,  45,  46,
-		50,  51,  52,  53,  54,  55,  56,
-		57,  58,  59,  60,  61,  62,
-		66,  67,  68,  69,  70,  71,  72,
-		73,  74,  75,  76,  77,  78,
-		82,  83,  84,  85,  86,  87,  88,
-		89,  90,  91,  92,  93,  94,
-		98,  99, 100, 101, 102, 103, 104,
-		105, 106, 107, 108, 109, 110,
-		114, 115, 116, 117, 118, 119, 120,
-		121, 122, 123, 124, 125, 126
-	},
-	.oobfree = {
-		{.offset = 15, .length = 3},
-		{.offset = 31, .length = 3},
-		{.offset = 47, .length = 3},
-		{.offset = 63, .length = 3},
-		{.offset = 79, .length = 3},
-		{.offset = 95, .length = 3},
-		{.offset = 111, .length = 3},
-		{.offset = 127, .length = 97}
-	}
-};
+NAND_ECCLAYOUT(fsmc_ecc4_224_layout,
+	       NAND_ECCLAYOUT_ECCPOS(2, 3, 4, 5, 6, 7, 8, 9,
+				     10, 11, 12, 13, 14, 18, 19, 20,
+				     21, 22, 23, 24, 25, 26, 27, 28,
+				     29, 30, 34, 35, 36, 37, 38, 39,
+				     40, 41, 42, 43, 44, 45, 46, 50,
+				     51, 52, 53, 54, 55, 56, 57, 58,
+				     59, 60, 61, 62, 66, 67, 68, 69,
+				     70, 71, 72, 73, 74, 75, 76, 77,
+				     78, 82, 83, 84, 85, 86, 87, 88,
+				     89, 90, 91, 92, 93, 94, 98, 99,
+				     100, 101, 102, 103, 104, 105, 106, 107,
+				     108, 109, 110, 114, 115, 116, 117, 118,
+				     119, 120, 121, 122, 123, 124, 125, 126),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(15, 3),
+				      NAND_OOBFREE(31, 3),
+				      NAND_OOBFREE(47, 3),
+				      NAND_OOBFREE(63, 3),
+				      NAND_OOBFREE(79, 3),
+				      NAND_OOBFREE(95, 3),
+				      NAND_OOBFREE(111, 3),
+				      NAND_OOBFREE(127, 97)));
 
 /*
  * ECC4 layout for NAND of pagesize 4096 bytes & OOBsize 128 bytes. 13*8 bytes
  * of OOB size is reserved for ECC, Byte no. 0 & 1 reserved for bad block & 22
  * bytes are free for use.
  */
-static struct nand_ecclayout fsmc_ecc4_128_layout = {
-	.eccbytes = 104,
-	.eccpos = {  2,   3,   4,   5,   6,   7,   8,
-		9,  10,  11,  12,  13,  14,
-		18,  19,  20,  21,  22,  23,  24,
-		25,  26,  27,  28,  29,  30,
-		34,  35,  36,  37,  38,  39,  40,
-		41,  42,  43,  44,  45,  46,
-		50,  51,  52,  53,  54,  55,  56,
-		57,  58,  59,  60,  61,  62,
-		66,  67,  68,  69,  70,  71,  72,
-		73,  74,  75,  76,  77,  78,
-		82,  83,  84,  85,  86,  87,  88,
-		89,  90,  91,  92,  93,  94,
-		98,  99, 100, 101, 102, 103, 104,
-		105, 106, 107, 108, 109, 110,
-		114, 115, 116, 117, 118, 119, 120,
-		121, 122, 123, 124, 125, 126
-	},
-	.oobfree = {
-		{.offset = 15, .length = 3},
-		{.offset = 31, .length = 3},
-		{.offset = 47, .length = 3},
-		{.offset = 63, .length = 3},
-		{.offset = 79, .length = 3},
-		{.offset = 95, .length = 3},
-		{.offset = 111, .length = 3},
-		{.offset = 127, .length = 1}
-	}
-};
+NAND_ECCLAYOUT(fsmc_ecc4_128_layout,
+	       NAND_ECCLAYOUT_ECCPOS(2, 3, 4, 5, 6, 7, 8, 9,
+				     10, 11, 12, 13, 14, 18, 19, 20,
+				     21, 22, 23, 24, 25, 26, 27, 28,
+				     29, 30, 34, 35, 36, 37, 38, 39,
+				     40, 41, 42, 43, 44, 45, 46, 50,
+				     51, 52, 53, 54, 55, 56, 57, 58,
+				     59, 60, 61, 62, 66, 67, 68, 69,
+				     70, 71, 72, 73, 74, 75, 76, 77,
+				     78, 82, 83, 84, 85, 86, 87, 88,
+				     89, 90, 91, 92, 93, 94, 98, 99,
+				     100, 101, 102, 103, 104, 105, 106, 107,
+				     108, 109, 110, 114, 115, 116, 117, 118,
+				     119, 120, 121, 122, 123, 124, 125, 126),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(15, 3),
+				      NAND_OOBFREE(31, 3),
+				      NAND_OOBFREE(47, 3),
+				      NAND_OOBFREE(63, 3),
+				      NAND_OOBFREE(79, 3),
+				      NAND_OOBFREE(95, 3),
+				      NAND_OOBFREE(111, 3),
+				      NAND_OOBFREE(127, 1)));
 
 /*
  * ECC4 layout for NAND of pagesize 2048 bytes & OOBsize 64 bytes. 13*4 bytes of
  * OOB size is reserved for ECC, Byte no. 0 & 1 reserved for bad block and 10
  * bytes are free for use.
  */
-static struct nand_ecclayout fsmc_ecc4_64_layout = {
-	.eccbytes = 52,
-	.eccpos = {  2,   3,   4,   5,   6,   7,   8,
-		9,  10,  11,  12,  13,  14,
-		18,  19,  20,  21,  22,  23,  24,
-		25,  26,  27,  28,  29,  30,
-		34,  35,  36,  37,  38,  39,  40,
-		41,  42,  43,  44,  45,  46,
-		50,  51,  52,  53,  54,  55,  56,
-		57,  58,  59,  60,  61,  62,
-	},
-	.oobfree = {
-		{.offset = 15, .length = 3},
-		{.offset = 31, .length = 3},
-		{.offset = 47, .length = 3},
-		{.offset = 63, .length = 1},
-	}
-};
+NAND_ECCLAYOUT(fsmc_ecc4_64_layout,
+	       NAND_ECCLAYOUT_ECCPOS(2, 3, 4, 5, 6, 7, 8, 9,
+				     10, 11, 12, 13, 14, 18, 19, 20,
+				     21, 22, 23, 24, 25, 26, 27, 28,
+				     29, 30, 34, 35, 36, 37, 38, 39,
+				     40, 41, 42, 43, 44, 45, 46, 50,
+				     51, 52, 53, 54, 55, 56, 57, 58,
+				     59, 60, 61, 62),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(15, 3),
+				      NAND_OOBFREE(31, 3),
+				      NAND_OOBFREE(47, 3),
+				      NAND_OOBFREE(63, 1)));
 
 /*
  * ECC4 layout for NAND of pagesize 512 bytes & OOBsize 16 bytes. 13 bytes of
  * OOB size is reserved for ECC, Byte no. 4 & 5 reserved for bad block and One
  * byte is free for use.
  */
-static struct nand_ecclayout fsmc_ecc4_16_layout = {
-	.eccbytes = 13,
-	.eccpos = { 0,  1,  2,  3,  6,  7, 8,
-		9, 10, 11, 12, 13, 14
-	},
-	.oobfree = {
-		{.offset = 15, .length = 1},
-	}
-};
+NAND_ECCLAYOUT(fsmc_ecc4_16_layout,
+	       NAND_ECCLAYOUT_ECCPOS(0, 1, 2, 3, 6, 7, 8, 9,
+				     10, 11, 12, 13, 14),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(15, 1)));
 
 /*
  * ECC placement definitions in oobfree type format.

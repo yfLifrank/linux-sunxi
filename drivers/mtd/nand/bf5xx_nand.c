@@ -109,29 +109,19 @@ static const unsigned short bfin_nfc_pin_req[] =
 	 0};
 
 #ifdef CONFIG_MTD_NAND_BF5XX_BOOTROM_ECC
-static struct nand_ecclayout bootrom_ecclayout = {
-	.eccbytes = 24,
-	.eccpos = {
-		0x8 * 0, 0x8 * 0 + 1, 0x8 * 0 + 2,
-		0x8 * 1, 0x8 * 1 + 1, 0x8 * 1 + 2,
-		0x8 * 2, 0x8 * 2 + 1, 0x8 * 2 + 2,
-		0x8 * 3, 0x8 * 3 + 1, 0x8 * 3 + 2,
-		0x8 * 4, 0x8 * 4 + 1, 0x8 * 4 + 2,
-		0x8 * 5, 0x8 * 5 + 1, 0x8 * 5 + 2,
-		0x8 * 6, 0x8 * 6 + 1, 0x8 * 6 + 2,
-		0x8 * 7, 0x8 * 7 + 1, 0x8 * 7 + 2
-	},
-	.oobfree = {
-		{ 0x8 * 0 + 3, 5 },
-		{ 0x8 * 1 + 3, 5 },
-		{ 0x8 * 2 + 3, 5 },
-		{ 0x8 * 3 + 3, 5 },
-		{ 0x8 * 4 + 3, 5 },
-		{ 0x8 * 5 + 3, 5 },
-		{ 0x8 * 6 + 3, 5 },
-		{ 0x8 * 7 + 3, 5 },
-	}
-};
+NAND_ECCLAYOUT(bootrom_ecclayout,
+	       NAND_ECCLAYOUT_ECCPOS(0, 1, 2, 8, 9, 10,
+				     16, 17, 18, 24, 25, 26,
+				     32, 33, 34, 40, 41, 42,
+				     48, 49, 50, 56, 57, 58),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(3, 5),
+				      NAND_OOBFREE(11, 5),
+				      NAND_OOBFREE(19, 5),
+				      NAND_OOBFREE(27, 5),
+				      NAND_OOBFREE(35, 5),
+				      NAND_OOBFREE(43, 5),
+				      NAND_OOBFREE(51, 5),
+				      NAND_OOBFREE(59, 5)));
 #endif
 
 /*

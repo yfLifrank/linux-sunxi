@@ -72,26 +72,18 @@ struct atmel_nand_caps {
  * the bytes have to be consecutives to avoid
  * several NAND_CMD_RNDOUT during read
  */
-static struct nand_ecclayout atmel_oobinfo_large = {
-	.eccbytes = 4,
-	.eccpos = {60, 61, 62, 63},
-	.oobfree = {
-		{2, 58}
-	},
-};
+NAND_ECCLAYOUT(atmel_oobinfo_large,
+	       NAND_ECCLAYOUT_ECCPOS(60, 61, 62, 63),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 58)));
 
 /* oob layout for small page size
  * bad block info is on bytes 4 and 5
  * the bytes have to be consecutives to avoid
  * several NAND_CMD_RNDOUT during read
  */
-static struct nand_ecclayout atmel_oobinfo_small = {
-	.eccbytes = 4,
-	.eccpos = {0, 1, 2, 3},
-	.oobfree = {
-		{6, 10}
-	},
-};
+NAND_ECCLAYOUT(atmel_oobinfo_small,
+	       NAND_ECCLAYOUT_ECCPOS(0, 1, 2, 3),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(6, 10)));
 
 struct atmel_nfc {
 	void __iomem		*base_cmd_regs;
