@@ -68,22 +68,22 @@ MODULE_PARM_DESC(otp,	"Corresponding behaviour of OneNAND in OTP"
  * flexonenand_oob_128 - oob info for Flex-Onenand with 4KB page
  * For now, we expose only 64 out of 80 ecc bytes
  */
-static struct nand_ecclayout flexonenand_oob_128 = {
-	.eccbytes	= 64,
-	.eccpos		= {
-		6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-		22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-		38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-		54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
-		70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
-		86, 87, 88, 89, 90, 91, 92, 93, 94, 95,
-		102, 103, 104, 105
-		},
-	.oobfree	= {
-		{2, 4}, {18, 4}, {34, 4}, {50, 4},
-		{66, 4}, {82, 4}, {98, 4}, {114, 4}
-	}
-};
+NAND_ECCLAYOUT(flexonenand_oob_128,
+	       NAND_ECCLAYOUT_ECCPOS(6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+				     22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+				     38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+				     54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+				     70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
+				     86, 87, 88, 89, 90, 91, 92, 93, 94, 95,
+				     102, 103, 104, 105),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 4),
+				      NAND_OOBFREE(18, 4),
+				      NAND_OOBFREE(34, 4),
+				      NAND_OOBFREE(50, 4),
+				      NAND_OOBFREE(66, 4),
+				      NAND_OOBFREE(82, 4),
+				      NAND_OOBFREE(98, 4),
+				      NAND_OOBFREE(114, 4)));
 
 /*
  * onenand_oob_128 - oob info for OneNAND with 4KB page
@@ -96,52 +96,48 @@ static struct nand_ecclayout flexonenand_oob_128 = {
  * oobfree uses the spare area fields marked as
  * "Managed by internal ECC logic for Logical Sector Number area"
  */
-static struct nand_ecclayout onenand_oob_128 = {
-	.eccbytes	= 64,
-	.eccpos		= {
-		7, 8, 9, 10, 11, 12, 13, 14, 15,
-		23, 24, 25, 26, 27, 28, 29, 30, 31,
-		39, 40, 41, 42, 43, 44, 45, 46, 47,
-		55, 56, 57, 58, 59, 60, 61, 62, 63,
-		71, 72, 73, 74, 75, 76, 77, 78, 79,
-		87, 88, 89, 90, 91, 92, 93, 94, 95,
-		103, 104, 105, 106, 107, 108, 109, 110, 111,
-		119
-	},
-	.oobfree	= {
-		{2, 3}, {18, 3}, {34, 3}, {50, 3},
-		{66, 3}, {82, 3}, {98, 3}, {114, 3}
-	}
-};
+NAND_ECCLAYOUT(onenand_oob_128,
+	       NAND_ECCLAYOUT_ECCPOS(7, 8, 9, 10, 11, 12, 13, 14, 15,
+				     23, 24, 25, 26, 27, 28, 29, 30, 31,
+				     39, 40, 41, 42, 43, 44, 45, 46, 47,
+				     55, 56, 57, 58, 59, 60, 61, 62, 63,
+				     71, 72, 73, 74, 75, 76, 77, 78, 79,
+				     87, 88, 89, 90, 91, 92, 93, 94, 95,
+				     103, 104, 105, 106, 107, 108, 109, 110,
+				     111, 119),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 3),
+				      NAND_OOBFREE(18, 3),
+				      NAND_OOBFREE(34, 3),
+				      NAND_OOBFREE(50, 3),
+				      NAND_OOBFREE(66, 3),
+				      NAND_OOBFREE(82, 3),
+				      NAND_OOBFREE(98, 3),
+				      NAND_OOBFREE(114, 3)));
 
 /**
  * onenand_oob_64 - oob info for large (2KB) page
  */
-static struct nand_ecclayout onenand_oob_64 = {
-	.eccbytes	= 20,
-	.eccpos		= {
-		8, 9, 10, 11, 12,
-		24, 25, 26, 27, 28,
-		40, 41, 42, 43, 44,
-		56, 57, 58, 59, 60,
-		},
-	.oobfree	= {
-		{2, 3}, {14, 2}, {18, 3}, {30, 2},
-		{34, 3}, {46, 2}, {50, 3}, {62, 2}
-	}
-};
+NAND_ECCLAYOUT(onenand_oob_64,
+	       NAND_ECCLAYOUT_ECCPOS(8, 9, 10, 11, 12, 24, 25, 26, 27, 28,
+				     40, 41, 42, 43, 44, 56, 57, 58, 59, 60),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 3),
+				      NAND_OOBFREE(14, 2),
+				      NAND_OOBFREE(18, 3),
+				      NAND_OOBFREE(30, 2),
+				      NAND_OOBFREE(34, 3),
+				      NAND_OOBFREE(46, 2),
+				      NAND_OOBFREE(50, 3),
+				      NAND_OOBFREE(62, 2)));
 
 /**
  * onenand_oob_32 - oob info for middle (1KB) page
  */
-static struct nand_ecclayout onenand_oob_32 = {
-	.eccbytes	= 10,
-	.eccpos		= {
-		8, 9, 10, 11, 12,
-		24, 25, 26, 27, 28,
-		},
-	.oobfree	= { {2, 3}, {14, 2}, {18, 3}, {30, 2} }
-};
+NAND_ECCLAYOUT(onenand_oob_32,
+	       NAND_ECCLAYOUT_ECCPOS(8, 9, 10, 11, 12, 24, 25, 26, 27, 28),
+	       NAND_ECCLAYOUT_OOBFREE(NAND_OOBFREE(2, 3),
+				      NAND_OOBFREE(14, 2),
+				      NAND_OOBFREE(18, 3),
+				      NAND_OOBFREE(30, 2)));
 
 static const unsigned char ffchars[] = {
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
