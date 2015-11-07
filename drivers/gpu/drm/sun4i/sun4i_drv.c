@@ -137,7 +137,7 @@ static int sun4i_drv_load(struct drm_device *drm, unsigned long flags)
 
 	ret = sun4i_tv_init(drm);
 	if (ret) {
-		dev_err(drm->dev, "Couldn't create our RGB output\n");
+		dev_err(drm->dev, "Couldn't create our TV output\n");
 		goto err_free_rgb;
 	}
 
