@@ -31,8 +31,8 @@
 #define SUN4I_A10_TCON_CH1_SCLK2_DIV_SHIFT	0
 
 #define SUN4I_A10_TCON_CH1_SCLK1_GATE_BIT	15
-#define SUN4I_A10_TCON_CH1_SCLK1_MUX_MASK	1
-#define SUN4I_A10_TCON_CH1_SCLK1_MUX_SHIFT	11
+#define SUN4I_A10_TCON_CH1_SCLK1_DIV_WIDTH	1
+#define SUN4I_A10_TCON_CH1_SCLK1_DIV_SHIFT	11
 
 static DEFINE_SPINLOCK(sun4i_a10_tcon_ch1_lock);
 
@@ -43,10 +43,10 @@ static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 	const char *sclk1_name = node->name;
 	char sclk2_name[SUN4I_TCON_CH1_SCLK_NAME_LEN];
 	char sclk2d2_name[SUN4I_TCON_CH1_SCLK_NAME_LEN];
+	struct clk_divider *sclk1_div, *sclk2_div;
 	struct clk_gate *sclk1_gate, *sclk2_gate;
-	struct clk_mux *sclk1_mux, *sclk2_mux;
-	struct clk *sclk1, *sclk2, *sclk2d2;
-	struct clk_divider *sclk2_div;
+	struct clk_mux *sclk2_mux;
+	struct clk *sclk1, *sclk2;
 	void __iomem *reg;
 	int i;
 
@@ -105,24 +105,14 @@ static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 		goto free_sclk2_div;
 	}
 
-	sclk2d2 = clk_register_fixed_factor(NULL, sclk2d2_name, sclk2_name, 0,
-					    1, 2);
-	if (IS_ERR(sclk2d2)) {
-		pr_err("%s: Couldn't register the clock\n", sclk2d2_name);
+	sclk1_div = kzalloc(sizeof(*sclk1_div), GFP_KERNEL);
+	if (!sclk1_div)
 		goto free_sclk2;
-	}
 
-	sclk1_parents[0] = sclk2_name;
-	sclk1_parents[1] = sclk2d2_name;
-
-	sclk1_mux = kzalloc(sizeof(*sclk1_mux), GFP_KERNEL);
-	if (!sclk1_mux)
-		goto free_sclk2d2;
-
-	sclk1_mux->reg = reg;
-	sclk1_mux->shift = SUN4I_A10_TCON_CH1_SCLK1_MUX_SHIFT;
-	sclk1_mux->mask = SUN4I_A10_TCON_CH1_SCLK1_MUX_MASK;
-	sclk1_mux->lock = &sun4i_a10_tcon_ch1_lock;
+	sclk1_div->reg = reg;
+	sclk1_div->shift = SUN4I_A10_TCON_CH1_SCLK1_DIV_SHIFT;
+	sclk1_div->width = SUN4I_A10_TCON_CH1_SCLK1_DIV_WIDTH;
+	sclk1_div->lock = &sun4i_a10_tcon_ch1_lock;
 
 	sclk1_gate = kzalloc(sizeof(*sclk1_gate), GFP_KERNEL);
 	if (!sclk1_gate)
@@ -134,8 +124,8 @@ static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 
 	sclk1 = clk_register_composite(NULL, sclk1_name, sclk1_parents,
 				       SUN4I_A10_TCON_CH1_SCLK1_PARENTS,
-				       &sclk1_mux->hw, &clk_mux_ops,
 				       NULL, NULL,
+				       &sclk1_div->hw, &clk_divider_ops,
 				       &sclk1_gate->hw, &clk_gate_ops,
 				       0);
 	if (IS_ERR(sclk1)) {
@@ -150,9 +140,7 @@ static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 free_sclk1_gate:
 	kfree(sclk1_gate);
 free_sclk1_mux:
-	kfree(sclk1_mux);
-free_sclk2d2:
-	clk_unregister(sclk2d2);
+	kfree(sclk1_div);
 free_sclk2:
 	clk_unregister(sclk2);
 free_sclk2_div:
