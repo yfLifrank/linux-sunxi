@@ -290,10 +290,26 @@ static struct tv_mode *sun4i_tv_find_tv_by_mode(struct drm_display_mode *mode)
 {
 	int i;
 
+	/* First try to identify the mode by name */
 	for (i = 0; i < ARRAY_SIZE(tv_modes); i++) {
 		struct tv_mode *tv_mode = &tv_modes[i];
 
+		DRM_DEBUG_DRIVER("Comparing mode %s vs %s",
+				 mode->name, tv_mode->name);
+
 		if (!strcmp(mode->name, tv_mode->name))
+			return tv_mode;
+	}
+
+	/* Then by number of lines */
+	for (i = 0; i < ARRAY_SIZE(tv_modes); i++) {
+		struct tv_mode *tv_mode = &tv_modes[i];
+
+		DRM_DEBUG_DRIVER("Comparing mode %s vs %s (X: %d vs %d)",
+				 mode->name, tv_mode->name,
+				 mode->vdisplay, tv_mode->vdisplay);
+
+		if (mode->vdisplay == tv_mode->vdisplay)
 			return tv_mode;
 	}
 
