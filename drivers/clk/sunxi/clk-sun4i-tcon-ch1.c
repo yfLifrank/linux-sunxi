@@ -21,7 +21,6 @@
 
 #define SUN4I_TCON_CH1_SCLK_NAME_LEN	32
 
-#define SUN4I_A10_TCON_CH1_SCLK1_PARENTS	2
 #define SUN4I_A10_TCON_CH1_SCLK2_PARENTS	4
 
 #define SUN4I_A10_TCON_CH1_SCLK2_GATE_BIT	31
@@ -38,11 +37,9 @@ static DEFINE_SPINLOCK(sun4i_a10_tcon_ch1_lock);
 
 static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 {
-	const char *sclk1_parents[SUN4I_A10_TCON_CH1_SCLK1_PARENTS];
 	const char *sclk2_parents[SUN4I_A10_TCON_CH1_SCLK2_PARENTS];
 	const char *sclk1_name = node->name;
-	char sclk2_name[SUN4I_TCON_CH1_SCLK_NAME_LEN];
-	char sclk2d2_name[SUN4I_TCON_CH1_SCLK_NAME_LEN];
+	const char *sclk2_name;
 	struct clk_divider *sclk1_div, *sclk2_div;
 	struct clk_gate *sclk1_gate, *sclk2_gate;
 	struct clk_mux *sclk2_mux;
@@ -53,11 +50,9 @@ static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 	of_property_read_string(node, "clock-output-names",
 				&sclk1_name);
 
-	snprintf(sclk2_name, SUN4I_TCON_CH1_SCLK_NAME_LEN,
-		 "%s2", sclk1_name);
-
-	snprintf(sclk2d2_name, SUN4I_TCON_CH1_SCLK_NAME_LEN,
-		 "%s2d2", sclk1_name);
+	sclk2_name = kasprintf(GFP_KERNEL, "%s2", sclk1_name);
+	if (!sclk2_name)
+		return;
 
 	reg = of_io_request_and_map(node, 0, of_node_full_name(node));
 	if (IS_ERR(reg)) {
@@ -96,8 +91,8 @@ static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 
 	sclk2 = clk_register_composite(NULL, sclk2_name, sclk2_parents,
 				       SUN4I_A10_TCON_CH1_SCLK2_PARENTS,
-				       &sclk2_mux->hw, &clk_mux_ops,
-				       &sclk2_div->hw, &clk_divider_ops,
+				       &sclk2_mux->hw, &clk_mux_ops,				       &
+				       sclk2_div->hw, &clk_divider_ops,
 				       &sclk2_gate->hw, &clk_gate_ops,
 				       0);
 	if (IS_ERR(sclk2)) {
@@ -122,8 +117,7 @@ static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 	sclk1_gate->bit_idx = SUN4I_A10_TCON_CH1_SCLK1_GATE_BIT;
 	sclk1_gate->lock = &sun4i_a10_tcon_ch1_lock;
 
-	sclk1 = clk_register_composite(NULL, sclk1_name, sclk1_parents,
-				       SUN4I_A10_TCON_CH1_SCLK1_PARENTS,
+	sclk1 = clk_register_composite(NULL, sclk1_name, &sclk2_name, 1,
 				       NULL, NULL,
 				       &sclk1_div->hw, &clk_divider_ops,
 				       &sclk1_gate->hw, &clk_gate_ops,
