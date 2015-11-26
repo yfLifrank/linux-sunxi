@@ -130,6 +130,8 @@ static int sun4i_tcon_create_pixel_clock(struct drm_device *drm,
 					    &div->hw, &clk_divider_ops,
 					    &gate->hw, &clk_gate_ops,
 					    CLK_USE_REGMAP);
+	if (IS_ERR(tcon->dclk))
+		return PTR_ERR(tcon->dclk);
 
 	return 0;
 }
@@ -162,7 +164,7 @@ static int sun4i_tcon_init_clocks(struct drm_device *drm,
 
 static void sun4i_tcon_free_clocks(struct sun4i_tcon *tcon)
 {
-	clk_unregister(tcon->dclk);
+	clk_unregister_composite(tcon->dclk);
 	clk_put(tcon->sclk1);
 	clk_put(tcon->sclk0);
 	clk_disable_unprepare(tcon->clk);
