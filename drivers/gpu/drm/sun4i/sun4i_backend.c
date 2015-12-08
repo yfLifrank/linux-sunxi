@@ -68,6 +68,10 @@ void sun4i_backend_layer_enable(struct sun4i_backend *backend,
 static int sun4i_backend_drm_format_to_layer(u32 format, u32 *mode)
 {
 	switch (format) {
+	case DRM_FORMAT_ARGB8888:
+		*mode = SUN4I_BACKEND_LAY_FBFMT_ARGB8888;
+		break;
+
 	case DRM_FORMAT_XRGB8888:
 		*mode = SUN4I_BACKEND_LAY_FBFMT_XRGB8888;
 		break;
