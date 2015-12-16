@@ -66,7 +66,7 @@ err:
 	return ret;
 }
 
-static int sun4i_drv_enable_vblank(struct drm_device *drm, int pipe)
+static int sun4i_drv_enable_vblank(struct drm_device *drm, unsigned int pipe)
 {
 	struct sun4i_drv *drv = drm->dev_private;
 	struct sun4i_tcon *tcon = drv->tcon;
@@ -78,7 +78,7 @@ static int sun4i_drv_enable_vblank(struct drm_device *drm, int pipe)
 	return 0;
 }
 
-static void sun4i_drv_disable_vblank(struct drm_device *drm, int pipe)
+static void sun4i_drv_disable_vblank(struct drm_device *drm, unsigned int pipe)
 {
 	struct sun4i_drv *drv = drm->dev_private;
 	struct sun4i_tcon *tcon = drv->tcon;
