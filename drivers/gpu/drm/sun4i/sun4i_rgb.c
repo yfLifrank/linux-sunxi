@@ -23,7 +23,6 @@
 struct sun4i_rgb {
 	struct drm_connector	connector;
 	struct drm_encoder	encoder;
-	struct drm_panel	*panel;
 
 	struct sun4i_drv	*drv;
 
@@ -48,8 +47,10 @@ static int sun4i_rgb_get_modes(struct drm_connector *connector)
 {
 	struct sun4i_rgb *rgb =
 		drm_connector_to_sun4i_rgb(connector);
+	struct sun4i_drv *drv = rgb->drv;
+	struct sun4i_tcon *tcon = drv->tcon;
 
-	return rgb->panel->funcs->get_modes(rgb->panel);
+	return drm_panel_get_modes(tcon->panel);
 }
 
 static int sun4i_rgb_mode_valid(struct drm_connector *connector,
@@ -97,8 +98,10 @@ static void
 sun4i_rgb_connector_destroy(struct drm_connector *connector)
 {
 	struct sun4i_rgb *rgb = drm_connector_to_sun4i_rgb(connector);
+	struct sun4i_drv *drv = rgb->drv;
+	struct sun4i_tcon *tcon = drv->tcon;
 
-	drm_panel_detach(rgb->panel);
+	drm_panel_detach(tcon->panel);
 	drm_connector_cleanup(connector);
 }
 
@@ -123,7 +126,7 @@ static void sun4i_rgb_encoder_enable(struct drm_encoder *encoder)
 
 	DRM_DEBUG_DRIVER("Enabling RGB output\n");
 
-	drm_panel_enable(rgb->panel);
+	drm_panel_enable(tcon->panel);
 	sun4i_tcon_enable_channel(tcon, 0);
 
 	rgb->enabled = true;
@@ -141,7 +144,7 @@ static void sun4i_rgb_encoder_disable(struct drm_encoder *encoder)
 	DRM_DEBUG_DRIVER("Disabling RGB output\n");
 
 	sun4i_tcon_disable_channel(tcon, 0);
-	drm_panel_disable(rgb->panel);
+	drm_panel_disable(tcon->panel);
 
 	rgb->enabled = false;
 }
@@ -185,26 +188,18 @@ static struct drm_encoder_funcs sun4i_rgb_enc_funcs = {
 int sun4i_rgb_init(struct drm_device *drm)
 {
 	struct sun4i_drv *drv = drm->dev_private;
+	struct sun4i_tcon *tcon = drv->tcon;
 	struct sun4i_rgb *rgb;
-	struct device_node *np;
 	int ret;
+
+	/* If we don't have a panel, there's no point in going on */
+	if (!tcon->panel)
+		return -ENODEV;
 
 	rgb = devm_kzalloc(drm->dev, sizeof(*rgb), GFP_KERNEL);
 	if (!rgb)
 		return -ENOMEM;
 	rgb->drv = drv;
-
-	np = of_parse_phandle(drm->dev->of_node, "allwinner,panel", 0);
-	if (!np) {
-		dev_err(drm->dev, "Couldn't find our panel DT node\n");
-		return -ENODEV;
-	}
-
-	rgb->panel = of_drm_find_panel(np);
-	if (!rgb->panel) {
-		dev_err(drm->dev, "Couldn't find our panel\n");
-		return -EPROBE_DEFER;
-	}
 
 	drm_encoder_helper_add(&rgb->encoder,
 			       &sun4i_rgb_enc_helper_funcs);
@@ -232,7 +227,7 @@ int sun4i_rgb_init(struct drm_device *drm)
 
 	drm_mode_connector_attach_encoder(&rgb->connector, &rgb->encoder);
 
-	drm_panel_attach(rgb->panel, &rgb->connector);
+	drm_panel_attach(tcon->panel, &rgb->connector);
 
 	return 0;
 

@@ -123,14 +123,6 @@ static int sun4i_drv_load(struct drm_device *drm, unsigned long flags)
 		goto err_free_layers;
 	}
 
-	/* Create our outputs */
-	ret = sun4i_rgb_init(drm);
-	if (ret) {
-		dev_warn(drm->dev, "Couldn't create our RGB output\n");
-		if (ret != -ENODEV)
-			goto err_free_crtc;
-	}
-
 	/* Create our framebuffer */
 	drv->fbdev = sun4i_framebuffer_init(drm);
 	if (IS_ERR(drv->fbdev)) {
