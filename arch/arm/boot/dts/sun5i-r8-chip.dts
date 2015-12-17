@@ -85,17 +85,6 @@
 
 	panel: panel {
 		compatible = "olimex,lcd-olinuxino-43-ts";
-		status = "disabled";
-
-		port {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			panel_in_tcon0: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&tcon0_out_panel>;
-			};
-		};
 	};
 };
 
@@ -251,13 +240,7 @@
 
 &tcon0 {
 	status = "okay";
-};
-
-&tcon0_out {
-	tcon0_out_panel: endpoint@1 {
-		reg = <1>;
-		remote-endpoint = <&panel_in_tcon0>;
-	};
+	allwinner,panel = <&panel>;
 };
 
 &uart1 {
