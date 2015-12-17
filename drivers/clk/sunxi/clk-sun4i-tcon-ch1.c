@@ -15,6 +15,7 @@
  */
 
 #include <linux/clk-provider.h>
+#include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -45,7 +46,7 @@ static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 	struct clk_mux *sclk2_mux;
 	struct clk *sclk1, *sclk2;
 	void __iomem *reg;
-	int i;
+	int i, ret;
 
 	of_property_read_string(node, "clock-output-names",
 				&sclk1_name);
@@ -127,10 +128,14 @@ static void __init sun4i_a10_tcon_ch1_setup(struct device_node *node)
 		goto free_sclk1_gate;
 	}
 
-	of_clk_add_provider(node, of_clk_src_simple_get, sclk1);
+	ret = of_clk_add_provider(node, of_clk_src_simple_get, sclk1);
+	if (WARN_ON(ret))
+		goto free_sclk1;
 
 	return;
 
+free_sclk1:
+	clk_unregister_composite(sclk1);
 free_sclk1_gate:
 	kfree(sclk1_gate);
 free_sclk1_mux:
