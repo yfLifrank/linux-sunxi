@@ -10,6 +10,9 @@
  * the License, or (at your option) any later version.
  */
 
+#include <linux/component.h>
+#include <linux/of_graph.h>
+
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_cma_helper.h>
@@ -98,6 +101,12 @@ static int sun4i_drv_load(struct drm_device *drm, unsigned long flags)
 
 	drm_vblank_init(drm, 1);
 	drm_mode_config_init(drm);
+
+	ret = component_bind_all(drm->dev, drm);
+	if (ret) {
+		dev_err(drm->dev, "Couldn't bind all pipelines components\n");
+		return ret;
+	}
 
 	/* Prepare the backend */
 	drv->backend = sun4i_backend_init(drm);
@@ -263,12 +272,14 @@ static struct drm_driver sun4i_drv_driver = {
 	.disable_vblank		= sun4i_drv_disable_vblank,
 };
 
-static int sun4i_drv_probe(struct platform_device *pdev)
+static int sun4i_drv_bind(struct device *dev)
 {
 	struct drm_device *drm;
 	int ret;
 
-	drm = drm_dev_alloc(&sun4i_drv_driver, &pdev->dev);
+	DRM_DEBUG_DRIVER("Prout\n");
+	
+	drm = drm_dev_alloc(&sun4i_drv_driver, dev);
 	if (!drm)
 		return -ENOMEM;
 
@@ -293,13 +304,103 @@ free_drm:
 	return ret;
 }
 
-static int sun4i_drv_remove(struct platform_device *pdev)
+static void sun4i_drv_unbind(struct device *dev)
 {
-	struct drm_device *drm = platform_get_drvdata(pdev);
+	struct drm_device *drm = dev_get_drvdata(dev);
 
 	drm_dev_unregister(drm);
 	drm_dev_unref(drm);
+}
 
+static const struct component_master_ops sun4i_drv_master_ops = {
+	.bind	= sun4i_drv_bind,
+	.unbind	= sun4i_drv_unbind,
+};
+
+static int compare_of(struct device *dev, void *data)
+{
+	DRM_DEBUG_DRIVER("Comparing of node %s with %s\n",
+			 of_node_full_name(dev->of_node),
+			 of_node_full_name(data));;
+
+	return dev->of_node == data;
+}
+
+static int sun4i_drv_add_endpoints(struct device *dev,
+				   struct component_match **match,
+				   struct device_node *parent)
+{
+	struct device_node *port, *ep, *remote;
+	int count = 0;
+
+	/* Inputs are listed first, then outputs */
+	port = of_graph_get_port_by_id(parent, 1);
+	if (!port) {
+		DRM_DEBUG_DRIVER("No output to bind\n");
+		return count;
+	}
+
+	for_each_child_of_node(port, ep) {
+		remote = of_graph_get_remote_port_parent(ep);
+		if (!remote) {
+			DRM_DEBUG_DRIVER("Error retrieving the output node\n");
+			of_node_put(remote);
+			continue;
+		}
+
+		if (!of_device_is_available(remote)) {
+			DRM_DEBUG_DRIVER("Output node %s disabled\n",
+					 remote->full_name);
+			of_node_put(remote);
+			continue;
+		}
+
+		/* Add current remote */
+		DRM_DEBUG_DRIVER("Queueing output remote %s\n",
+				 remote->full_name);
+		component_match_add(dev, match, compare_of, remote);
+		count++;
+
+		/* And walk down our tree */
+		count += sun4i_drv_add_endpoints(dev, match, remote);
+
+		of_node_put(remote);
+	}
+
+	return count;
+}
+
+static int sun4i_drv_probe(struct platform_device *pdev)
+{
+	struct component_match *match = NULL;
+	struct device_node *np = pdev->dev.of_node;
+	int i, count;
+
+	for (i = 0;; i++) {
+		struct device_node *pipeline = of_parse_phandle(np, "pipelines",
+								i);
+		if (!pipeline)
+			break;
+
+		if (!of_device_is_available(pipeline)) {
+			of_node_put(pipeline);
+			continue;
+		}
+	
+		count = sun4i_drv_add_endpoints(&pdev->dev, &match,
+						pipeline);
+
+		DRM_DEBUG_DRIVER("Queued %d outputs on pipeline %d\n",
+				 count, i);
+	}
+
+
+	return component_master_add_with_match(&pdev->dev,
+					       &sun4i_drv_master_ops, match);
+}
+
+static int sun4i_drv_remove(struct platform_device *pdev)
+{
 	return 0;
 }
 
