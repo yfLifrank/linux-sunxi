@@ -11,6 +11,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/component.h>
 #include <linux/of_address.h>
 #include <linux/regmap.h>
 
@@ -477,14 +478,6 @@ static struct drm_encoder_funcs sun4i_tv_funcs = {
 	.destroy	= sun4i_tv_destroy,
 };
 
-static struct regmap_config sun4i_tv_regmap_config = {
-	.reg_bits	= 32,
-	.val_bits	= 32,
-	.reg_stride	= 4,
-	.max_register	= SUN4I_TVE_WSS_DATA2_REG,
-	.name		= "tv-encoder",
-};
-
 static int sun4i_tv_comp_get_modes(struct drm_connector *connector)
 {
 	int i;
@@ -559,43 +552,47 @@ static struct drm_connector_funcs sun4i_tv_comp_connector_funcs = {
 	.atomic_destroy_state	= drm_atomic_helper_connector_destroy_state,
 };
 
-int sun4i_tv_init(struct drm_device *drm)
+static struct regmap_config sun4i_tv_regmap_config = {
+	.reg_bits	= 32,
+	.val_bits	= 32,
+	.reg_stride	= 4,
+	.max_register	= SUN4I_TVE_WSS_DATA2_REG,
+	.name		= "tv-encoder",
+};
+
+static int sun4i_tv_bind(struct device *dev, struct device *master,
+			 void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	struct drm_device *drm = data;
 	struct sun4i_drv *drv = drm->dev_private;
-	struct device_node *np;
 	struct sun4i_tv *tv;
-	struct resource res;
+	struct resource *res;
 	void __iomem *regs;
 	int ret;
 
-	tv = devm_kzalloc(drm->dev, sizeof(*tv), GFP_KERNEL);
+	tv = devm_kzalloc(dev, sizeof(*tv), GFP_KERNEL);
 	if (!tv)
 		return -ENOMEM;
 	tv->drv = drv;
 
-	np = of_parse_phandle(drm->dev->of_node, "allwinner,tv-encoder", 0);
-	if (!np) {
-		dev_err(drm->dev, "Couldn't find the TV encoder node\n");
-		return -ENODEV;
-	}
-
-	ret = of_address_to_resource(np, 0, &res);
-	regs = devm_ioremap_resource(drm->dev, &res);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(regs)) {
-		dev_err(drm->dev, "Couldn't map the TV encoder registers\n");
+		dev_err(dev, "Couldn't map the TV encoder registers\n");
 		return PTR_ERR(regs);
 	}
 
-	tv->regs = devm_regmap_init_mmio(drm->dev, regs,
-					  &sun4i_tv_regmap_config);
+	tv->regs = devm_regmap_init_mmio(dev, regs,
+					 &sun4i_tv_regmap_config);
 	if (IS_ERR(tv->regs)) {
-		dev_err(drm->dev, "Couldn't create the TV encoder regmap\n");
+		dev_err(dev, "Couldn't create the TV encoder regmap\n");
 		return PTR_ERR(tv->regs);
 	}
 
-	tv->clk = of_clk_get(np, 0);
+	tv->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(tv->clk)) {
-		dev_err(drm->dev, "Couldn't get the TV encoder clock\n");
+		dev_err(dev, "Couldn't get the TV encoder clock\n");
 		return PTR_ERR(tv->clk);
 	}
 	clk_prepare_enable(tv->clk);
@@ -607,7 +604,7 @@ int sun4i_tv_init(struct drm_device *drm)
 			       &sun4i_tv_funcs,
 			       DRM_MODE_ENCODER_TVDAC);
 	if (ret) {
-		dev_err(drm->dev, "Couldn't initialise the TV encoder\n");
+		dev_err(dev, "Couldn't initialise the TV encoder\n");
 		return ret;
 	}
 
@@ -619,7 +616,7 @@ int sun4i_tv_init(struct drm_device *drm)
 				 &sun4i_tv_comp_connector_funcs,
 				 DRM_MODE_CONNECTOR_Composite);
 	if (ret) {
-		dev_err(drm->dev,
+		dev_err(dev,
 			"Couldn't initialise the Composite connector\n");
 		goto err_cleanup_connector;
 	}
@@ -633,3 +630,47 @@ err_cleanup_connector:
 	drm_encoder_cleanup(&tv->encoder);
 	return ret;
 }
+
+static void sun4i_tv_unbind(struct device *dev, struct device *master,
+			    void *data)
+{
+#warning FIXME
+}
+
+static struct component_ops sun4i_tv_ops = {
+	.bind	= sun4i_tv_bind,
+	.unbind	= sun4i_tv_unbind,
+};
+
+static int sun4i_tv_probe(struct platform_device *pdev)
+{
+	printk("pwet\n");
+	return component_add(&pdev->dev, &sun4i_tv_ops);
+}
+
+static int sun4i_tv_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &sun4i_tv_ops);
+
+	return 0;
+}
+
+static const struct of_device_id sun4i_tv_of_table[] = {
+	{ .compatible = "allwinner,sun4i-a10-tv-encoder" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, sun4i_tv_of_table);
+
+static struct platform_driver sun4i_tv_platform_driver = {
+	.probe		= sun4i_tv_probe,
+	.remove		= sun4i_tv_remove,
+	.driver		= {
+		.name		= "sun4i-tve",
+		.of_match_table	= sun4i_tv_of_table,
+	},
+};
+module_platform_driver(sun4i_tv_platform_driver);
+
+MODULE_AUTHOR("Maxime Ripard <maxime.ripard@free-electrons.com>");
+MODULE_DESCRIPTION("Allwinner A10 TV Encoder Driver");
+MODULE_LICENSE("GPL");

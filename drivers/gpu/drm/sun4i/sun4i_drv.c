@@ -27,7 +27,6 @@
 #include "sun4i_layer.h"
 #include "sun4i_rgb.h"
 #include "sun4i_tcon.h"
-#include "sun4i_tv.h"
 
 static void sun4i_drv_preclose(struct drm_device *drm,
 			       struct drm_file *file_priv)
@@ -137,13 +136,6 @@ static int sun4i_drv_load(struct drm_device *drm, unsigned long flags)
 		dev_warn(drm->dev, "Couldn't create our RGB output\n");
 		if (ret != -ENODEV)
 			goto err_free_crtc;
-	}
-
-	ret = sun4i_tv_init(drm);
-	if (ret) {
-		dev_warn(drm->dev, "Couldn't create our TV output\n");
-		if (ret != -ENODEV)
-			goto err_free_rgb;
 	}
 
 	/* Create our framebuffer */
