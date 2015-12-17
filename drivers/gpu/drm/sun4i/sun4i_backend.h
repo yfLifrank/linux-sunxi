@@ -157,7 +157,4 @@ int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 int sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
 				      int layer, struct drm_plane *plane);
 
-struct sun4i_backend *sun4i_backend_init(struct drm_device *drm);
-void sun4i_backend_free(struct sun4i_backend *backend);
-
 #endif /* _SUN4I_BACKEND_H_ */

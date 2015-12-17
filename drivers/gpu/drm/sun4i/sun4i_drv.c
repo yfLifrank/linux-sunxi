@@ -107,13 +107,6 @@ static int sun4i_drv_load(struct drm_device *drm, unsigned long flags)
 		return ret;
 	}
 
-	/* Prepare the backend */
-	drv->backend = sun4i_backend_init(drm);
-	if (IS_ERR(drv->backend)) {
-		dev_err(drm->dev, "Couldn't initialise our backend\n");
-		return PTR_ERR(drv->backend);
-	}
-
 	/* Create our layers */
 	drv->layers = sun4i_layers_init(drm);
 	if (!drv->layers) {
@@ -157,7 +150,6 @@ err_free_crtc:
 err_free_layers:
 err_free_tcon:
 err_free_backend:
-	sun4i_backend_free(drv->backend);
 
 	return ret;
 }
@@ -168,7 +160,6 @@ static int sun4i_drv_unload(struct drm_device *drm)
 
 	drm_kms_helper_poll_fini(drm);
 	sun4i_framebuffer_free(drm);
-	sun4i_backend_free(drv->backend);
 	drm_vblank_cleanup(drm);
 
 	return 0;

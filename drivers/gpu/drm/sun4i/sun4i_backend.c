@@ -18,6 +18,8 @@
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_plane_helper.h>
 
+#include <linux/component.h>
+
 #include "sun4i_backend.h"
 #include "sun4i_drv.h"
 
@@ -201,53 +203,57 @@ static struct regmap_config sun4i_backend_regmap_config = {
 	.val_bits	= 32,
 	.reg_stride	= 4,
 	.max_register	= 0x5800,
-	.name		= "backend",
 };
 
-struct sun4i_backend *sun4i_backend_init(struct drm_device *drm)
+static int sun4i_backend_bind(struct device *dev, struct device *master,
+			      void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	struct drm_device *drm = data;
+	struct sun4i_drv *drv = drm->dev_private;
 	struct sun4i_backend *backend;
 	struct resource *res;
 	void __iomem *regs;
 	int i;
 
-	backend = devm_kzalloc(drm->dev, sizeof(*backend), GFP_KERNEL);
+	backend = devm_kzalloc(dev, sizeof(*backend), GFP_KERNEL);
 	if (!backend)
-		return ERR_PTR(-ENOMEM);
-
-	res = platform_get_resource_byname(to_platform_device(drm->dev),
-					   IORESOURCE_MEM, "backend0");
-	regs = devm_ioremap_resource(drm->dev, res);
+		return -ENOMEM;
+	dev_set_drvdata(dev, backend);
+	drv->backend = backend;
+	
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(regs)) {
-		dev_err(drm->dev, "Couldn't map the backend0 registers\n");
-		return ERR_CAST(regs);
+		dev_err(dev, "Couldn't map the backend registers\n");
+		return PTR_ERR(regs);
 	}
 
-	backend->regs = devm_regmap_init_mmio(drm->dev, regs,
+	backend->regs = devm_regmap_init_mmio(dev, regs,
 					      &sun4i_backend_regmap_config);
 	if (IS_ERR(backend->regs)) {
-		dev_err(drm->dev, "Couldn't create the backend0 regmap\n");
-		return ERR_CAST(backend->regs);
+		dev_err(dev, "Couldn't create the backend0 regmap\n");
+		return PTR_ERR(backend->regs);
 	}
 
-	backend->bus_clk = devm_clk_get(drm->dev, "backend0-bus");
+	backend->bus_clk = devm_clk_get(dev, "ahb");
 	if (IS_ERR(backend->bus_clk)) {
-		dev_err(drm->dev, "Couldn't get the backend bus clock\n");
-		return ERR_CAST(backend->bus_clk);
+		dev_err(dev, "Couldn't get the backend bus clock\n");
+		return PTR_ERR(backend->bus_clk);
 	}
 	clk_prepare_enable(backend->bus_clk);
 
-	backend->mod_clk = devm_clk_get(drm->dev, "backend0-mod");
+	backend->mod_clk = devm_clk_get(dev, "mod");
 	if (IS_ERR(backend->mod_clk)) {
-		dev_err(drm->dev, "Couldn't get the backend module clock\n");
-		return ERR_CAST(backend->mod_clk);
+		dev_err(dev, "Couldn't get the backend module clock\n");
+		return PTR_ERR(backend->mod_clk);
 	}
 	clk_prepare_enable(backend->mod_clk);
 
-	backend->ram_clk = devm_clk_get(drm->dev, "backend0-ram");
+	backend->ram_clk = devm_clk_get(dev, "ram");
 	if (IS_ERR(backend->ram_clk)) {
-		dev_err(drm->dev, "Couldn't get the backend RAM clock\n");
-		return ERR_CAST(backend->ram_clk);
+		dev_err(dev, "Couldn't get the backend RAM clock\n");
+		return PTR_ERR(backend->ram_clk);
 	}
 	clk_prepare_enable(backend->ram_clk);
 
@@ -264,12 +270,52 @@ struct sun4i_backend *sun4i_backend_init(struct drm_device *drm)
 		     SUN4I_BACKEND_MODCTL_DEBE_EN |
 		     SUN4I_BACKEND_MODCTL_START_CTL);
 
-	return backend;
+	return 0;
 }
 
-void sun4i_backend_free(struct sun4i_backend *backend)
+static void sun4i_backend_unbind(struct device *dev, struct device *master,
+				 void *data)
 {
+	struct sun4i_backend *backend = dev_get_drvdata(dev);
+
 	clk_disable_unprepare(backend->ram_clk);
 	clk_disable_unprepare(backend->mod_clk);
 	clk_disable_unprepare(backend->bus_clk);
 }
+
+static struct component_ops sun4i_backend_ops = {
+	.bind	= sun4i_backend_bind,
+	.unbind	= sun4i_backend_unbind,
+};
+
+static int sun4i_backend_probe(struct platform_device *pdev)
+{
+	return component_add(&pdev->dev, &sun4i_backend_ops);
+}
+
+static int sun4i_backend_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &sun4i_backend_ops);
+
+	return 0;
+}
+
+static const struct of_device_id sun4i_backend_of_table[] = {
+	{ .compatible = "allwinner,sun5i-a13-display-backend" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, sun4i_backend_of_table);
+
+static struct platform_driver sun4i_backend_platform_driver = {
+	.probe		= sun4i_backend_probe,
+	.remove		= sun4i_backend_remove,
+	.driver		= {
+		.name		= "sun4i-backend",
+		.of_match_table	= sun4i_backend_of_table,
+	},
+};
+module_platform_driver(sun4i_backend_platform_driver);
+
+MODULE_AUTHOR("Maxime Ripard <maxime.ripard@free-electrons.com>");
+MODULE_DESCRIPTION("Allwinner A10 Display Backend Driver");
+MODULE_LICENSE("GPL");
