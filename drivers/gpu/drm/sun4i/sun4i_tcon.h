@@ -158,9 +158,6 @@ struct sun4i_tcon {
 	bool				enabled;
 };
 
-struct sun4i_tcon *sun4i_tcon_init(struct drm_device *drm);
-void sun4i_tcon_free(struct sun4i_tcon *tcon);
-
 /* Global Control */
 void sun4i_tcon_disable(struct sun4i_tcon *tcon);
 void sun4i_tcon_enable(struct sun4i_tcon *tcon);
