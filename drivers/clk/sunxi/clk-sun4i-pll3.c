@@ -32,6 +32,7 @@ static void __init sun4i_a10_pll3_setup(struct device_node *node)
 	struct clk_gate *gate;
 	void __iomem *reg;
 	struct clk *clk;
+	int ret;
 
 	of_property_read_string(node, "clock-output-names", &clk_name);
 	parent = of_clk_get_parent_name(node, 0);
@@ -52,7 +53,7 @@ static void __init sun4i_a10_pll3_setup(struct device_node *node)
 
 	mult = kzalloc(sizeof(*mult), GFP_KERNEL);
 	if (!mult)
-		goto free_gate;
+		goto err_free_gate;
 
 	mult->reg = reg;
 	mult->shift = SUN4I_A10_PLL3_DIV_SHIFT;
@@ -67,16 +68,20 @@ static void __init sun4i_a10_pll3_setup(struct device_node *node)
 				     0);
 	if (IS_ERR(clk)) {
 		pr_err("%s: Couldn't register the clock\n", clk_name);
-		goto free_mult;
+		goto err_free_mult;
 	}
 
-	of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	ret = of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	if (WARN_ON(ret))
+		goto err_clk_unregister;
 
 	return;
 
-free_mult:
+err_clk_unregister:
+	clk_unregister_composite(clk);
+err_free_mult:
 	kfree(mult);
-free_gate:
+err_free_gate:
 	kfree(gate);
 }
 
