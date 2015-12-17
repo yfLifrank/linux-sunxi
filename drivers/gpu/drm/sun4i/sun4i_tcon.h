@@ -141,8 +141,6 @@
 #define SUN4I_TCON_MAX_CHANNELS		2
 
 struct sun4i_tcon {
-	struct sun4i_de			*de;
-
 	struct regmap			*regs;
 
 	/* Main bus clock */

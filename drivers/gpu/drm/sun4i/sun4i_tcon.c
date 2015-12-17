@@ -426,7 +426,7 @@ static int sun4i_tcon_bind(struct device *dev, struct device *master,
 			   void *data)
 {
 	struct drm_device *drm = data;
-	struct sun4i_de *de = drm->dev_private;
+	struct sun4i_drv *drv = drm->dev_private;
 	struct sun4i_tcon *tcon;
 	int ret;
 
@@ -435,7 +435,8 @@ static int sun4i_tcon_bind(struct device *dev, struct device *master,
 	tcon = devm_kzalloc(dev, sizeof(*tcon), GFP_KERNEL);
 	if (!tcon)
 		return -ENOMEM;
-	tcon->de = de;
+	dev_set_drvdata(dev, tcon);
+	drv->tcon = tcon;
 
 	ret = sun4i_tcon_init_regmap(dev, tcon);
 	if (ret) {
