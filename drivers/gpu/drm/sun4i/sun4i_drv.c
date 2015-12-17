@@ -301,13 +301,17 @@ static int compare_of(struct device *dev, void *data)
 
 static int sun4i_drv_add_endpoints(struct device *dev,
 				   struct component_match **match,
-				   struct device_node *parent)
+				   struct device_node *node)
 {
 	struct device_node *port, *ep, *remote;
 	int count = 0;
 
+	/* Add current component */
+	component_match_add(dev, match, compare_of, node);
+	count++;
+
 	/* Inputs are listed first, then outputs */
-	port = of_graph_get_port_by_id(parent, 1);
+	port = of_graph_get_port_by_id(node, 1);
 	if (!port) {
 		DRM_DEBUG_DRIVER("No output to bind\n");
 		return count;
@@ -328,13 +332,7 @@ static int sun4i_drv_add_endpoints(struct device *dev,
 			continue;
 		}
 
-		/* Add current remote */
-		DRM_DEBUG_DRIVER("Queueing output remote %s\n",
-				 remote->full_name);
-		component_match_add(dev, match, compare_of, remote);
-		count++;
-
-		/* And walk down our tree */
+		/* Walk down our tree */
 		count += sun4i_drv_add_endpoints(dev, match, remote);
 
 		of_node_put(remote);
