@@ -20,12 +20,10 @@
 
 #include <uapi/drm/sun4i_drm.h>
 
-#include "sun4i_backend.h"
 #include "sun4i_crtc.h"
 #include "sun4i_drv.h"
 #include "sun4i_framebuffer.h"
 #include "sun4i_layer.h"
-#include "sun4i_rgb.h"
 #include "sun4i_tcon.h"
 
 static void sun4i_drv_preclose(struct drm_device *drm,
