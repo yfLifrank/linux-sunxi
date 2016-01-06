@@ -343,13 +343,13 @@ static int sun4i_tcon_init_clocks(struct device *dev,
 
 	tcon->sclk0 = devm_clk_get(dev, "tcon-ch0");
 	if (IS_ERR(tcon->sclk0)) {
-		dev_err(dev, "Couldn't get the TCON bus clock\n");
+		dev_err(dev, "Couldn't get the TCON channel 0 clock\n");
 		return PTR_ERR(tcon->sclk0);
 	}
 
 	tcon->sclk1 = devm_clk_get(dev, "tcon-ch1");
 	if (IS_ERR(tcon->sclk1)) {
-		dev_err(dev, "Couldn't get the TCON bus clock\n");
+		dev_err(dev, "Couldn't get the TCON channel 1 clock\n");
 		return PTR_ERR(tcon->sclk1);
 	}
 

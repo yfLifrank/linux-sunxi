@@ -335,7 +335,7 @@ static int sun4i_drv_probe(struct platform_device *pdev)
 {
 	struct component_match *match = NULL;
 	struct device_node *np = pdev->dev.of_node;
-	int i, count;
+	int i, count = 0;
 
 	for (i = 0;; i++) {
 		struct device_node *pipeline = of_parse_phandle(np, "pipelines",
@@ -348,16 +348,19 @@ static int sun4i_drv_probe(struct platform_device *pdev)
 			continue;
 		}
 	
-		count = sun4i_drv_add_endpoints(&pdev->dev, &match,
+		count += sun4i_drv_add_endpoints(&pdev->dev, &match,
 						pipeline);
 
 		DRM_DEBUG_DRIVER("Queued %d outputs on pipeline %d\n",
 				 count, i);
 	}
 
-
-	return component_master_add_with_match(&pdev->dev,
-					       &sun4i_drv_master_ops, match);
+	if (count)
+		return component_master_add_with_match(&pdev->dev,
+						       &sun4i_drv_master_ops,
+						       match);
+	else
+		return 0;
 }
 
 static int sun4i_drv_remove(struct platform_device *pdev)
