@@ -61,7 +61,8 @@
 			compatible = "allwinner,simple-framebuffer",
 				     "simple-framebuffer";
 			allwinner,pipeline = "de_be0-lcd0";
-			clocks = <&pll5 1>, <&ahb_gates 36>, <&ahb_gates 44>;
+			clocks = <&pll5 1>, <&ahb_gates 36>, <&ahb_gates 44>,
+				 <&dram_gates 26>;
 			status = "disabled";
 		};
 	};
@@ -110,8 +111,8 @@
 					<10>, <13>,
 					<14>, <20>,
 					<21>, <22>,
-				        <28>, <32>, <36>,
-				        <40>, <44>,
+					<28>, <32>, <34>,
+					<36>, <40>, <44>,
 					<46>, <51>,
 					<52>;
 			clock-output-names = "ahb_usbotg", "ahb_ehci",
@@ -120,11 +121,12 @@
 					     "ahb_mmc2", "ahb_nand",
 					     "ahb_sdram", "ahb_spi0",
 					     "ahb_spi1", "ahb_spi2",
-					     "ahb_stimer", "ahb_ve", "ahb_lcd",
-					     "ahb_csi", "ahb_de_be",
+					     "ahb_stimer", "ahb_ve", "ahb_tve",
+					     "ahb_lcd", "ahb_csi", "ahb_de_be",
 					     "ahb_de_fe", "ahb_iep",
 					     "ahb_mali400";
 		};
+
 
 		apb0_gates: clk@01c20068 {
 			#clock-cells = <1>;

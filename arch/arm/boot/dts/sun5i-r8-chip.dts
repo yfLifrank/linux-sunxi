@@ -93,6 +93,10 @@
 		vin0-supply = <&reg_ldo3>;
 		vin1-supply = <&reg_ldo4>;
 	};
+
+	panel: panel {
+		compatible = "olimex,lcd-olinuxino-43-ts";
+	};
 };
 
 &codec {
@@ -101,6 +105,10 @@
 
 &cpu0 {
 	cpu-supply = <&reg_dcdc2>;
+};
+
+&be0 {
+	status = "okay";
 };
 
 &ehci0 {
@@ -246,6 +254,11 @@
 	vin-supply = <&reg_vcc5v0>;
 	gpio = <&pio 1 10 GPIO_ACTIVE_HIGH>; /* PB10 */
 	status = "okay";
+};
+
+&tcon0 {
+	status = "okay";
+	allwinner,panel = <&panel>;
 };
 
 &uart1 {
