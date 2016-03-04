@@ -625,7 +625,7 @@
 				allwinner,pins = "PC0", "PC1", "PC2",
 						"PC5", "PC8", "PC9", "PC10",
 						"PC11", "PC12", "PC13", "PC14",
-						"PC15";
+						"PC15", "PC19";
 				allwinner,function = "nand0";
 				allwinner,drive = <0>;
 				allwinner,pull = <0>;

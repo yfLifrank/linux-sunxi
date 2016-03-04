@@ -80,6 +80,10 @@
 #define NFC_PAGE_SHIFT(x)	(((x) < 10 ? 0 : (x) - 10) << 8)
 #define NFC_SAM			BIT(12)
 #define NFC_RAM_METHOD		BIT(14)
+#define NFC_IFACE_TYPE_MSK	GENMASK(19, 18)
+#define NFC_IFACE_SDR		(0 << 18)
+#define NFC_IFACE_ONFI_DDR	(2 << 18)
+#define NFC_IFACE_TOGGLE_DDR	(3 << 18)
 #define NFC_DEBUG_CTL		BIT(31)
 
 /* define bit use in NFC_ST */
@@ -1498,6 +1502,33 @@ static int _sunxi_nand_lookup_timing(const s32 *lut, int lut_size, u32 duration,
 	return -EINVAL;
 }
 
+static void sunxi_nand_enable_ddr(struct sunxi_nand_chip *chip)
+{
+	struct sunxi_nfc *nfc = to_sunxi_nfc(chip->nand.controller);
+	struct nand_chip *nand = &chip->nand;
+	struct mtd_info *mtd = &chip->mtd;
+	u32 tmp;
+
+	chip->nand.select_chip(&chip->mtd, 0);
+	nand->cmdfunc(mtd, NAND_CMD_SET_FEATURES, 0x80, -1);
+
+	nand->write_byte(mtd, 0x0);
+	nand->write_byte(mtd, 0x0);
+	nand->write_byte(mtd, 0x0);
+	nand->write_byte(mtd, 0x0);
+	chip->nand.select_chip(&chip->mtd, -1);
+
+	tmp = readl(nfc->regs + NFC_REG_CTL);
+	tmp &= NFC_IFACE_TYPE_MSK;
+	tmp |= NFC_IFACE_TOGGLE_DDR;
+	writel(tmp, nfc->regs + NFC_REG_CTL);
+	chip->timing_ctl = 0x41f;
+	chip->timing_cfg = 0x40004;
+	writel(chip->timing_ctl, nfc->regs + NFC_REG_TIMING_CTL);
+	writel(chip->timing_cfg, nfc->regs + NFC_REG_TIMING_CFG);
+	clk_set_rate(nfc->mod_clk, 100000000);
+}
+
 #define sunxi_nand_lookup_timing(l, p, c) \
 			_sunxi_nand_lookup_timing(l, ARRAY_SIZE(l), p, c)
 
@@ -1670,7 +1701,9 @@ static int sunxi_nand_chip_init_timings(struct sunxi_nand_chip *chip,
 	if (IS_ERR(timings))
 		return PTR_ERR(timings);
 
-	return sunxi_nand_chip_set_timings(chip, timings);
+	sunxi_nand_chip_set_timings(chip, timings);
+	sunxi_nand_enable_ddr(chip);
+	return 0;
 }
 
 static int sunxi_nand_hw_common_ecc_ctrl_init(struct mtd_info *mtd,
