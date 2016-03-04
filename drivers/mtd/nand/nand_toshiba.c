@@ -66,6 +66,9 @@ static int tc58teg_setup_read_retry(struct mtd_info *mtd, int retry_mode)
 	chip->cmdfunc(mtd, 0x26, -1, -1);
 	chip->cmdfunc(mtd, 0x5d, -1, -1);
 
+	if (!retry_mode)
+		chip->cmdfunc(mtd, 0xff, -1, -1);
+
 	return 0;
 }
 
@@ -78,6 +81,8 @@ static int tc58teg_init(struct mtd_info *mtd, const uint8_t *id)
 	chip->setup_read_retry = tc58teg_setup_read_retry;
 	chip->read_retries = 10;
 	chip->options |= NAND_NEED_SCRAMBLING;
+	chip->options |= NAND_CACHEPRG;
+	chip->onfi_timing_mode_default = 3;
 
 	return 0;
 }
@@ -90,6 +95,10 @@ struct toshiba_nand_initializer {
 static struct toshiba_nand_initializer initializers[] = {
 	{
 		.id = {NAND_MFR_TOSHIBA, 0xde, 0x94, 0x93, 0x76, 0x51},
+		.init = tc58teg_init,
+	},
+	{
+		.id = {NAND_MFR_TOSHIBA, 0xd7, 0x84, 0x93, 0x72, 0x51},
 		.init = tc58teg_init,
 	},
 };
