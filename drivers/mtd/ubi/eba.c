@@ -608,6 +608,7 @@ retry:
 
 	data_size = offset + len;
 	mutex_lock(&ubi->buf_mutex);
+	ubi_buffer_memset()
 	memset(ubi->peb_buf + offset, 0xFF, len);
 
 	/* Read everything before the area where the write failure happened */
