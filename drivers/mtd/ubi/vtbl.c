@@ -301,6 +301,7 @@ static int create_vtbl(struct ubi_device *ubi, struct ubi_attach_info *ai,
 	int err, tries = 0;
 	struct ubi_vid_hdr *vid_hdr;
 	struct ubi_ainf_peb *new_aeb;
+	enum ubi_io_mode mode;
 
 	dbg_gen("create volume table (copy #%d)", copy + 1);
 
@@ -313,6 +314,14 @@ retry:
 	if (IS_ERR(new_aeb)) {
 		err = PTR_ERR(new_aeb);
 		goto out_free;
+	}
+
+	if (ubi->version > 1 && ubi->max_lebs_per_peb) {
+		vid_hdr->vol_mode = UBI_VID_MODE_SLC;
+		mode = UBI_IO_MODE_SLC;
+	} else {
+		vid_hdr->vol_mode = UBI_VID_MODE_NORMAL;
+		mode = UBI_IO_MODE_NORMAL;
 	}
 
 	vid_hdr->vol_type = UBI_LAYOUT_VOLUME_TYPE;
@@ -552,6 +561,7 @@ static int init_volumes(struct ubi_device *ubi,
 		vol->upd_marker = vtbl[i].upd_marker;
 		vol->vol_type = vtbl[i].vol_type == UBI_VID_DYNAMIC ?
 					UBI_DYNAMIC_VOLUME : UBI_STATIC_VOLUME;
+		vol->vol_mode = vtbl[i].vol_mode;
 		vol->name_len = be16_to_cpu(vtbl[i].name_len);
 		vol->leb_size = ubi->leb_size;
 		vol->usable_leb_size = vol->leb_size - vol->data_pad;
@@ -629,6 +639,7 @@ static int init_volumes(struct ubi_device *ubi,
 	vol->reserved_pebs = UBI_LAYOUT_VOLUME_EBS;
 	vol->alignment = UBI_LAYOUT_VOLUME_ALIGN;
 	vol->vol_type = UBI_DYNAMIC_VOLUME;
+	vol->vol_mode = UBI_VID_MODE_NORMAL;
 	vol->name_len = sizeof(UBI_LAYOUT_VOLUME_NAME) - 1;
 	memcpy(vol->name, UBI_LAYOUT_VOLUME_NAME, vol->name_len + 1);
 	vol->used_ebs = vol->reserved_pebs;

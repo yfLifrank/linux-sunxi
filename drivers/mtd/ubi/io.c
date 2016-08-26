@@ -1052,6 +1052,31 @@ int ubi_io_write_ec_hdr(struct ubi_device *ubi, int pnum,
 	return err;
 }
 
+static int validate_mode(const struct ubi_device *ubi,
+			 const struct ubi_vid_hdr *vid_hdr)
+{
+	/* All versions of UBI support normal mode. */
+	if (!vid_hdr->vol_mode == UBI_VID_MODE_NORMAL)
+		return 0;
+
+	/* Version 1 only supports normal mode. */
+	if (vid_hdr->version == 1)
+		goto err;
+
+	/* Version 2 supports normal and SLC mode. */
+	if (vid_hdr->version == 2 &&
+	    vid_hdr->vol_mode != UBI_VID_MODE_SLC)
+		goto err;
+
+	return 0;
+
+err:
+	ubi_err(ubi, "mode %d not supported by UBI version %d", vid_hdr->vol_mode,
+		vid_hdr->version);
+
+	return -EINVAL;
+}
+
 /**
  * validate_vid_hdr - validate a volume identifier header.
  * @ubi: UBI device description object
@@ -1078,6 +1103,9 @@ static int validate_vid_hdr(const struct ubi_device *ubi,
 		ubi_err(ubi, "bad version in VID header");
 		goto bad;
 	}
+
+	if (validate_mode(ubi, vid_hdr))
+		goto bad;
 
 	if (copy_flag != 0 && copy_flag != 1) {
 		ubi_err(ubi, "bad copy_flag");

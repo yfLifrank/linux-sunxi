@@ -210,6 +210,7 @@ void ubi_dump_mkvol_req(const struct ubi_mkvol_req *req)
 	pr_err("\talignment %d\n",   req->alignment);
 	pr_err("\tbytes     %lld\n", (long long)req->bytes);
 	pr_err("\tvol_type  %d\n",   req->vol_type);
+	pr_err("\tvol_mode  %d\n",   req->vol_mode);
 	pr_err("\tname_len  %d\n",   req->name_len);
 
 	memcpy(nm, req->name, 16);

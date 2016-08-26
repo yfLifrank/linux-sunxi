@@ -207,12 +207,12 @@ int ubi_create_volume(struct ubi_device *ubi, struct ubi_mkvol_req *req)
 			goto out_unlock;
 		}
 
-	/*
-	 * Volume LEB size is currently PEB size - (size reserved for the EC
-	 * and VID headers). This will change with MLC/TLC NAND support and
-	 * the LEB consolidation concept.
-	 */
-	vol->leb_size = ubi->leb_size;
+	/* LEB size is adapted when SLC mode is requested. */
+	if (req->vol_mode == UBI_VOL_MODE_SLC)
+		vol->leb_size = (ubi->peb_size / ubi->max_lebs_per_peb) -
+				ubi->leb_start;
+	else
+		vol->leb_size = ubi->leb_size;
 
 	/* Calculate how many eraseblocks are requested */
 	vol->alignment = req->alignment;

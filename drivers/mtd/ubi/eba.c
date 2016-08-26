@@ -515,6 +515,7 @@ int ubi_eba_read_leb(struct ubi_device *ubi, struct ubi_volume *vol, int lnum,
 	int err, pnum, scrub = 0, vol_id = vol->vol_id;
 	struct ubi_vid_hdr *vid_hdr;
 	uint32_t uninitialized_var(crc);
+	enum ubi_io_mode mode;
 
 	err = leb_read_lock(ubi, vol_id, lnum);
 	if (err)
@@ -598,8 +599,12 @@ retry:
 		ubi_free_vid_hdr(ubi, vid_hdr);
 	}
 
-	err = ubi_io_read_data(ubi, buf, pnum, offset, len,
-			       UBI_IO_MODE_NORMAL);
+	if (vol->vol_mode == UBI_VID_MODE_SLC)
+		mode = UBI_IO_MODE_SLC;
+	else
+		mode = UBI_IO_MODE_NORMAL;
+
+	err = ubi_io_read_data(ubi, buf, pnum, offset, len, mode);
 	if (err) {
 		if (err == UBI_IO_BITFLIPS)
 			scrub = 1;
@@ -716,6 +721,7 @@ static int recover_peb(struct ubi_device *ubi, int pnum, int vol_id, int lnum,
 	int err, idx = vol_id2idx(ubi, vol_id), new_pnum, data_size, tries = 0;
 	struct ubi_volume *vol = ubi->volumes[idx];
 	struct ubi_vid_hdr *vid_hdr;
+	enum ubi_io_mode mode;
 	uint32_t crc;
 
 	vid_hdr = ubi_zalloc_vid_hdr(ubi, GFP_NOFS);
@@ -743,13 +749,18 @@ retry:
 
 	ubi_assert(vid_hdr->vol_type == UBI_VID_DYNAMIC);
 
+	if (vid_hdr->vol_mode == UBI_VID_MODE_SLC)
+		mode = UBI_IO_MODE_SLC;
+	else
+		mode = UBI_IO_MODE_NORMAL;
+
 	mutex_lock(&ubi->buf_mutex);
 	memset(ubi->peb_buf + offset, 0xFF, len);
 
 	/* Read everything before the area where the write failure happened */
 	if (offset > 0) {
 		err = ubi_io_read_data(ubi, ubi->peb_buf, pnum, 0, offset,
-				       UBI_IO_MODE_NORMAL);
+				       mode);
 		if (err && err != UBI_IO_BITFLIPS) {
 			up_read(&ubi->fm_eba_sem);
 			goto out_unlock;
@@ -772,7 +783,7 @@ retry:
 	}
 
 	err = ubi_io_write_data(ubi, ubi->peb_buf, new_pnum, 0, data_size,
-				UBI_IO_MODE_NORMAL);
+				mode);
 	if (err) {
 		mutex_unlock(&ubi->buf_mutex);
 		up_read(&ubi->fm_eba_sem);
@@ -830,9 +841,15 @@ int ubi_eba_write_leb(struct ubi_device *ubi, struct ubi_volume *vol, int lnum,
 {
 	int err, pnum, tries = 0, vol_id = vol->vol_id;
 	struct ubi_vid_hdr *vid_hdr;
+	enum ubi_io_mode mode;
 
 	if (ubi->ro_mode)
 		return -EROFS;
+
+	if (vol->vol_mode == UBI_VID_MODE_SLC)
+		mode = UBI_IO_MODE_SLC;
+	else
+		mode = UBI_IO_MODE_NORMAL;
 
 	err = leb_write_lock(ubi, vol_id, lnum);
 	if (err)
@@ -843,8 +860,7 @@ int ubi_eba_write_leb(struct ubi_device *ubi, struct ubi_volume *vol, int lnum,
 		dbg_eba("write %d bytes at offset %d of LEB %d:%d, PEB %d",
 			len, offset, vol_id, lnum, pnum);
 
-		err = ubi_io_write_data(ubi, buf, pnum, offset, len,
-					UBI_IO_MODE_NORMAL);
+		err = ubi_io_write_data(ubi, buf, pnum, offset, len, mode);
 		if (err) {
 			ubi_warn(ubi, "failed to write data to PEB %d", pnum);
 			if (err == -EIO && ubi->bad_allowed)
@@ -895,8 +911,7 @@ retry:
 	}
 
 	if (len) {
-		err = ubi_io_write_data(ubi, buf, pnum, offset, len,
-					UBI_IO_MODE_NORMAL);
+		err = ubi_io_write_data(ubi, buf, pnum, offset, len, mode);
 		if (err) {
 			ubi_warn(ubi, "failed to write %d bytes at offset %d of LEB %d:%d, PEB %d",
 				 len, offset, vol_id, lnum, pnum);
@@ -965,10 +980,16 @@ int ubi_eba_write_leb_st(struct ubi_device *ubi, struct ubi_volume *vol,
 {
 	int err, pnum, tries = 0, data_size = len, vol_id = vol->vol_id;
 	struct ubi_vid_hdr *vid_hdr;
+	enum ubi_io_mode mode;
 	uint32_t crc;
 
 	if (ubi->ro_mode)
 		return -EROFS;
+
+	if (vol->vol_mode == UBI_VID_MODE_SLC)
+		mode = UBI_IO_MODE_SLC;
+	else
+		mode = UBI_IO_MODE_NORMAL;
 
 	if (lnum == used_ebs - 1)
 		/* If this is the last LEB @len may be unaligned */
@@ -1018,7 +1039,7 @@ retry:
 		goto write_error;
 	}
 
-	err = ubi_io_write_data(ubi, buf, pnum, 0, len, UBI_IO_MODE_NORMAL);
+	err = ubi_io_write_data(ubi, buf, pnum, 0, len, mode);
 	if (err) {
 		ubi_warn(ubi, "failed to write %d bytes of data to PEB %d",
 			 len, pnum);
@@ -1082,10 +1103,16 @@ int ubi_eba_atomic_leb_change(struct ubi_device *ubi, struct ubi_volume *vol,
 {
 	int err, pnum, old_pnum, tries = 0, vol_id = vol->vol_id;
 	struct ubi_vid_hdr *vid_hdr;
+	enum ubi_io_mode mode;
 	uint32_t crc;
 
 	if (ubi->ro_mode)
 		return -EROFS;
+
+	if (vol->vol_mode == UBI_VID_MODE_SLC)
+		mode = UBI_IO_MODE_SLC;
+	else
+		mode = UBI_IO_MODE_NORMAL;
 
 	if (len == 0) {
 		/*
@@ -1138,7 +1165,7 @@ retry:
 		goto write_error;
 	}
 
-	err = ubi_io_write_data(ubi, buf, pnum, 0, len, UBI_IO_MODE_NORMAL);
+	err = ubi_io_write_data(ubi, buf, pnum, 0, len, mode);
 	if (err) {
 		ubi_warn(ubi, "failed to write %d bytes of data to PEB %d",
 			 len, pnum);
@@ -1231,6 +1258,7 @@ int ubi_eba_copy_leb(struct ubi_device *ubi, int from, int to,
 {
 	int err, vol_id, lnum, data_size, aldata_size, idx;
 	struct ubi_volume *vol;
+	enum ubi_io_mode mode;
 	uint32_t crc;
 
 	vol_id = be32_to_cpu(vid_hdr->vol_id);
@@ -1294,6 +1322,11 @@ int ubi_eba_copy_leb(struct ubi_device *ubi, int from, int to,
 		data_size = aldata_size =
 			    vol->leb_size - be32_to_cpu(vid_hdr->data_pad);
 
+	if (vol->vol_mode == UBI_VID_MODE_SLC)
+		mode = UBI_IO_MODE_SLC;
+	else
+		mode = UBI_IO_MODE_NORMAL;
+
 	/*
 	 * OK, now the LEB is locked and we can safely start moving it. Since
 	 * this function utilizes the @ubi->peb_buf buffer which is shared
@@ -1302,8 +1335,7 @@ int ubi_eba_copy_leb(struct ubi_device *ubi, int from, int to,
 	 */
 	mutex_lock(&ubi->buf_mutex);
 	dbg_wl("read %d bytes of data", aldata_size);
-	err = ubi_io_read_data(ubi, ubi->peb_buf, from, 0, aldata_size,
-			       UBI_IO_MODE_NORMAL);
+	err = ubi_io_read_data(ubi, ubi->peb_buf, from, 0, aldata_size, mode);
 	if (err && err != UBI_IO_BITFLIPS) {
 		ubi_warn(ubi, "error %d while reading data from PEB %d",
 			 err, from);
@@ -1366,7 +1398,7 @@ int ubi_eba_copy_leb(struct ubi_device *ubi, int from, int to,
 
 	if (data_size > 0) {
 		err = ubi_io_write_data(ubi, ubi->peb_buf, to, 0, aldata_size,
-					UBI_IO_MODE_NORMAL);
+					mode);
 		if (err) {
 			if (err == -EIO)
 				err = MOVE_TARGET_WR_ERR;
