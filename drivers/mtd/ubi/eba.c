@@ -50,6 +50,30 @@
 #define EBA_RESERVED_PEBS 1
 
 /**
+ * struct ubi_eba_entry - structure encoding a single LEB -> PEB association
+ * @pnum: the physical eraseblock number attached to the LEB
+ *
+ * This structure is encoding a LEB -> PEB association. Note that the LEB
+ * number is not stored here, because it is the index used to access the
+ * entries table.
+ */
+struct ubi_eba_entry {
+	int pnum;
+};
+
+/**
+ * struct ubi_eba_table - LEB -> PEB association information
+ * @entries: the LEB to PEB mapping (one entry per LEB).
+ *
+ * This structure is private to the EBA logic and should be kept here.
+ * It is encoding the LEB to PEB association table, and is subject to
+ * changes.
+ */
+struct ubi_eba_table {
+	struct ubi_eba_entry *entries;
+};
+
+/**
  * next_sqnum - get next sequence number.
  * @ubi: UBI device description object
  *
@@ -97,7 +121,94 @@ void ubi_eba_get_ldesc(struct ubi_volume *vol, int lnum,
 		       struct ubi_eba_leb_desc *ldesc)
 {
 	ldesc->lnum = lnum;
-	ldesc->pnum = vol->eba_tbl[lnum];
+	ldesc->pnum = vol->eba_tbl->entries[lnum].pnum;
+}
+
+/**
+ * ubi_eba_create_table - allocate a new EBA table and initialize it with all
+ *			  LEBs unmapped
+ * @vol: volume containing the EBA table to copy
+ * @nentries: number of entries in the table
+ *
+ * Allocate a new EBA table and initialize it with all LEBs unmapped.
+ * Returns a valid pointer if it succeed, an ERR_PTR() otherwise.
+ */
+struct ubi_eba_table *ubi_eba_create_table(struct ubi_volume *vol,
+					   int nentries)
+{
+	struct ubi_eba_table *tbl;
+	int err = -ENOMEM;
+	int i;
+
+	tbl = kzalloc(sizeof(*tbl), GFP_KERNEL);
+	if (!tbl)
+		return ERR_PTR(-ENOMEM);
+
+	tbl->entries = kmalloc(nentries * sizeof(*tbl->entries), GFP_KERNEL);
+	if (!tbl->entries)
+		goto err;
+
+	for (i = 0; i < nentries; i++)
+		tbl->entries[i].pnum = UBI_LEB_UNMAPPED;
+
+
+	return tbl;
+
+err:
+	kfree(tbl->entries);
+	kfree(tbl);
+
+	return ERR_PTR(err);
+}
+
+/**
+ * ubi_eba_destroy_table - destroy an EBA table
+ * @tbl: the table to destroy
+ *
+ * Destroy an EBA table.
+ */
+void ubi_eba_destroy_table(struct ubi_eba_table *tbl)
+{
+	if (!tbl)
+		return;
+
+	kfree(tbl->entries);
+	kfree(tbl);
+}
+
+/**
+ * ubi_eba_copy_table - copy the EBA table attached to vol into another table
+ * @vol: volume containing the EBA table to copy
+ * @dst: destination
+ * @nentries: number of entries to copy
+ *
+ * Copy the EBA table stored in vol into the one pointed by dst.
+ */
+void ubi_eba_copy_table(struct ubi_volume *vol, struct ubi_eba_table *dst,
+		        int nentries)
+{
+	struct ubi_eba_table *src;
+	int i;
+
+	ubi_assert(dst && vol && vol->eba_tbl);
+
+	src = vol->eba_tbl;
+
+	for (i = 0; i < nentries; i++)
+		dst->entries[i].pnum = src->entries[i].pnum;
+}
+
+/**
+ * ubi_eba_set_table - assign a new EBA table to a volume
+ * @vol: volume containing the EBA table to copy
+ * @tbl: new EBA table
+ *
+ * Assign a new EBA table to the volume and release the old one.
+ */
+void ubi_eba_set_table(struct ubi_volume *vol, struct ubi_eba_table *tbl)
+{
+	ubi_eba_destroy_table(vol->eba_tbl);
+	vol->eba_tbl = tbl;
 }
 
 /**
@@ -337,7 +448,7 @@ static void leb_write_unlock(struct ubi_device *ubi, int vol_id, int lnum)
  */
 bool ubi_eba_is_mapped(struct ubi_volume *vol, int lnum)
 {
-	return vol->eba_tbl[lnum] >= 0;
+	return vol->eba_tbl->entries[lnum].pnum >= 0;
 }
 
 /**
@@ -362,7 +473,7 @@ int ubi_eba_unmap_leb(struct ubi_device *ubi, struct ubi_volume *vol,
 	if (err)
 		return err;
 
-	pnum = vol->eba_tbl[lnum];
+	pnum = vol->eba_tbl->entries[lnum].pnum;
 	if (pnum < 0)
 		/* This logical eraseblock is already unmapped */
 		goto out_unlock;
@@ -370,7 +481,7 @@ int ubi_eba_unmap_leb(struct ubi_device *ubi, struct ubi_volume *vol,
 	dbg_eba("erase LEB %d:%d, PEB %d", vol_id, lnum, pnum);
 
 	down_read(&ubi->fm_eba_sem);
-	vol->eba_tbl[lnum] = UBI_LEB_UNMAPPED;
+	vol->eba_tbl->entries[lnum].pnum = UBI_LEB_UNMAPPED;
 	up_read(&ubi->fm_eba_sem);
 	err = ubi_wl_put_peb(ubi, vol_id, lnum, pnum, 0);
 
@@ -409,7 +520,7 @@ int ubi_eba_read_leb(struct ubi_device *ubi, struct ubi_volume *vol, int lnum,
 	if (err)
 		return err;
 
-	pnum = vol->eba_tbl[lnum];
+	pnum = vol->eba_tbl->entries[lnum].pnum;
 	if (pnum < 0) {
 		/*
 		 * The logical eraseblock is not mapped, fill the whole buffer
@@ -668,7 +779,7 @@ retry:
 	mutex_unlock(&ubi->buf_mutex);
 	ubi_free_vid_hdr(ubi, vid_hdr);
 
-	vol->eba_tbl[lnum] = new_pnum;
+	vol->eba_tbl->entries[lnum].pnum = new_pnum;
 	up_read(&ubi->fm_eba_sem);
 	ubi_wl_put_peb(ubi, vol_id, lnum, pnum, 1);
 
@@ -724,7 +835,7 @@ int ubi_eba_write_leb(struct ubi_device *ubi, struct ubi_volume *vol, int lnum,
 	if (err)
 		return err;
 
-	pnum = vol->eba_tbl[lnum];
+	pnum = vol->eba_tbl->entries[lnum].pnum;
 	if (pnum >= 0) {
 		dbg_eba("write %d bytes at offset %d of LEB %d:%d, PEB %d",
 			len, offset, vol_id, lnum, pnum);
@@ -789,7 +900,7 @@ retry:
 		}
 	}
 
-	vol->eba_tbl[lnum] = pnum;
+	vol->eba_tbl->entries[lnum].pnum = pnum;
 	up_read(&ubi->fm_eba_sem);
 
 	leb_write_unlock(ubi, vol_id, lnum);
@@ -910,8 +1021,8 @@ retry:
 		goto write_error;
 	}
 
-	ubi_assert(vol->eba_tbl[lnum] < 0);
-	vol->eba_tbl[lnum] = pnum;
+	ubi_assert(!ubi_eba_is_mapped(vol, lnum));
+	vol->eba_tbl->entries[lnum].pnum = pnum;
 	up_read(&ubi->fm_eba_sem);
 
 	leb_write_unlock(ubi, vol_id, lnum);
@@ -1012,7 +1123,7 @@ retry:
 	}
 
 	dbg_eba("change LEB %d:%d, PEB %d, write VID hdr to PEB %d",
-		vol_id, lnum, vol->eba_tbl[lnum], pnum);
+		vol_id, lnum, vol->eba_tbl->entries[lnum].pnum, pnum);
 
 	err = ubi_io_write_vid_hdr(ubi, pnum, vid_hdr);
 	if (err) {
@@ -1030,8 +1141,8 @@ retry:
 		goto write_error;
 	}
 
-	old_pnum = vol->eba_tbl[lnum];
-	vol->eba_tbl[lnum] = pnum;
+	old_pnum = vol->eba_tbl->entries[lnum].pnum;
+	vol->eba_tbl->entries[lnum].pnum = pnum;
 	up_read(&ubi->fm_eba_sem);
 
 	if (old_pnum >= 0) {
@@ -1164,9 +1275,9 @@ int ubi_eba_copy_leb(struct ubi_device *ubi, int from, int to,
 	 * probably waiting on @ubi->move_mutex. No need to continue the work,
 	 * cancel it.
 	 */
-	if (vol->eba_tbl[lnum] != from) {
+	if (vol->eba_tbl->entries[lnum].pnum != from) {
 		dbg_wl("LEB %d:%d is no longer mapped to PEB %d, mapped to PEB %d, cancel",
-		       vol_id, lnum, from, vol->eba_tbl[lnum]);
+		       vol_id, lnum, from, vol->eba_tbl->entries[lnum].pnum);
 		err = MOVE_CANCEL_RACE;
 		goto out_unlock_leb;
 	}
@@ -1258,9 +1369,9 @@ int ubi_eba_copy_leb(struct ubi_device *ubi, int from, int to,
 		cond_resched();
 	}
 
-	ubi_assert(vol->eba_tbl[lnum] == from);
+	ubi_assert(vol->eba_tbl->entries[lnum].pnum == from);
 	down_read(&ubi->fm_eba_sem);
-	vol->eba_tbl[lnum] = to;
+	vol->eba_tbl->entries[lnum].pnum = to;
 	up_read(&ubi->fm_eba_sem);
 
 out_unlock_buf:
@@ -1417,7 +1528,7 @@ out_free:
  */
 int ubi_eba_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 {
-	int i, j, err, num_volumes;
+	int i, err, num_volumes;
 	struct ubi_ainf_volume *av;
 	struct ubi_volume *vol;
 	struct ubi_ainf_peb *aeb;
@@ -1433,35 +1544,39 @@ int ubi_eba_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	num_volumes = ubi->vtbl_slots + UBI_INT_VOL_COUNT;
 
 	for (i = 0; i < num_volumes; i++) {
+		struct ubi_eba_table *tbl;
+
 		vol = ubi->volumes[i];
 		if (!vol)
 			continue;
 
 		cond_resched();
 
-		vol->eba_tbl = kmalloc(vol->reserved_pebs * sizeof(int),
-				       GFP_KERNEL);
-		if (!vol->eba_tbl) {
-			err = -ENOMEM;
+		tbl = ubi_eba_create_table(vol, vol->reserved_pebs);
+		if (IS_ERR(tbl)) {
+			err = PTR_ERR(tbl);
 			goto out_free;
 		}
 
-		for (j = 0; j < vol->reserved_pebs; j++)
-			vol->eba_tbl[j] = UBI_LEB_UNMAPPED;
+		ubi_eba_set_table(vol, tbl);
 
 		av = ubi_find_av(ai, idx2vol_id(ubi, i));
 		if (!av)
 			continue;
 
 		ubi_rb_for_each_entry(rb, aeb, &av->root, u.rb) {
-			if (aeb->lnum >= vol->reserved_pebs)
+			if (aeb->lnum >= vol->reserved_pebs) {
 				/*
 				 * This may happen in case of an unclean reboot
 				 * during re-size.
 				 */
 				ubi_move_aeb_to_list(av, aeb, &ai->erase);
-			else
-				vol->eba_tbl[aeb->lnum] = aeb->pnum;
+			} else {
+				struct ubi_eba_entry *entry;
+
+				entry = &vol->eba_tbl->entries[aeb->lnum];
+				entry->pnum = aeb->pnum;
+			}
 		}
 	}
 
@@ -1498,8 +1613,7 @@ out_free:
 	for (i = 0; i < num_volumes; i++) {
 		if (!ubi->volumes[i])
 			continue;
-		kfree(ubi->volumes[i]->eba_tbl);
-		ubi->volumes[i]->eba_tbl = NULL;
+		ubi_eba_set_table(ubi->volumes[i], NULL);
 	}
 	return err;
 }
