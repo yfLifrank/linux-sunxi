@@ -1513,8 +1513,7 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	int err, i, reserved_pebs, found_pebs = 0;
 	struct rb_node *rb1, *rb2;
 	struct ubi_ainf_volume *av;
-	struct ubi_ainf_peb *apeb, *tmp;
-	struct ubi_ainf_leb *aleb;
+	struct ubi_ainf_peb *aeb, *tmp;
 	struct ubi_wl_entry *e;
 
 	ubi->used = ubi->erroneous = ubi->free = ubi->scrub = RB_ROOT;
@@ -1536,17 +1535,17 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	ubi->pq_head = 0;
 
 	ubi->free_count = 0;
-	list_for_each_entry_safe(apeb, tmp, &ai->erase, node) {
+	list_for_each_entry_safe(aeb, tmp, &ai->erase, u.list) {
 		cond_resched();
 
 		e = kmem_cache_alloc(ubi_wl_entry_slab, GFP_KERNEL);
 		if (!e)
 			goto out_free;
 
-		e->pnum = apeb->pnum;
-		e->ec = apeb->ec;
+		e->pnum = aeb->pnum;
+		e->ec = aeb->ec;
 		ubi->lookuptbl[e->pnum] = e;
-		if (schedule_erase(ubi, e, apeb->vol_id, UBI_UNKNOWN, 0)) {
+		if (schedule_erase(ubi, e, aeb->vol_id, aeb->lnum, 0)) {
 			wl_entry_destroy(ubi, e);
 			goto out_free;
 		}
@@ -1554,15 +1553,15 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		found_pebs++;
 	}
 
-	list_for_each_entry(apeb, &ai->free, node) {
+	list_for_each_entry(aeb, &ai->free, u.list) {
 		cond_resched();
 
 		e = kmem_cache_alloc(ubi_wl_entry_slab, GFP_KERNEL);
 		if (!e)
 			goto out_free;
 
-		e->pnum = apeb->pnum;
-		e->ec = apeb->ec;
+		e->pnum = aeb->pnum;
+		e->ec = aeb->ec;
 		ubi_assert(e->ec >= 0);
 
 		wl_tree_add(e, &ubi->free);
@@ -1574,18 +1573,18 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	}
 
 	ubi_rb_for_each_entry(rb1, av, &ai->volumes, rb) {
-		ubi_rb_for_each_entry(rb2, aleb, &av->root, node) {
+		ubi_rb_for_each_entry(rb2, aeb, &av->root, u.rb) {
 			cond_resched();
 
 			e = kmem_cache_alloc(ubi_wl_entry_slab, GFP_KERNEL);
 			if (!e)
 				goto out_free;
 
-			e->pnum = aleb->peb->pnum;
-			e->ec = aleb->peb->ec;
+			e->pnum = aeb->pnum;
+			e->ec = aeb->ec;
 			ubi->lookuptbl[e->pnum] = e;
 
-			if (!aleb->peb->scrub) {
+			if (!aeb->scrub) {
 				dbg_wl("add PEB %d EC %d to the used tree",
 				       e->pnum, e->ec);
 				wl_tree_add(e, &ubi->used);
@@ -1599,10 +1598,10 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		}
 	}
 
-	list_for_each_entry(apeb, &ai->fastmap, node) {
+	list_for_each_entry(aeb, &ai->fastmap, u.list) {
 		cond_resched();
 
-		e = ubi_find_fm_block(ubi, apeb->pnum);
+		e = ubi_find_fm_block(ubi, aeb->pnum);
 
 		if (e) {
 			ubi_assert(!ubi->lookuptbl[e->pnum]);
@@ -1614,19 +1613,18 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 			 * an power cut before scheduling them we need to
 			 * take care of them here.
 			 */
-			if (ubi->lookuptbl[apeb->pnum])
+			if (ubi->lookuptbl[aeb->pnum])
 				continue;
 
 			e = kmem_cache_alloc(ubi_wl_entry_slab, GFP_KERNEL);
 			if (!e)
 				goto out_free;
 
-			e->pnum = apeb->pnum;
-			e->ec = apeb->ec;
+			e->pnum = aeb->pnum;
+			e->ec = aeb->ec;
 			ubi_assert(!ubi->lookuptbl[e->pnum]);
 			ubi->lookuptbl[e->pnum] = e;
-			if (schedule_erase(ubi, e, apeb->vol_id,
-					   UBI_UNKNOWN, 0)) {
+			if (schedule_erase(ubi, e, aeb->vol_id, aeb->lnum, 0)) {
 				wl_entry_destroy(ubi, e);
 				goto out_free;
 			}

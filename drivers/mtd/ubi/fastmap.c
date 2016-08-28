@@ -131,7 +131,7 @@ out:
 }
 
 /**
- * add_apeb - create and add a attach physical erase block to a given list.
+ * add_aeb - create and add a attach erase block to a given list.
  * @ai: UBI attach info object
  * @list: the target list
  * @pnum: PEB number of the new attach erase block
@@ -140,27 +140,29 @@ out:
  *
  * Returns 0 on success, < 0 indicates an internal error.
  */
-static int add_apeb(struct ubi_attach_info *ai, struct list_head *list,
-		    int pnum, int ec, int scrub)
+static int add_aeb(struct ubi_attach_info *ai, struct list_head *list,
+		   int pnum, int ec, int scrub)
 {
-	struct ubi_ainf_peb *apeb;
+	struct ubi_ainf_peb *aeb;
 
-	apeb = ubi_alloc_apeb(ai, pnum, ec);
-	if (!apeb)
+	aeb = ubi_alloc_aeb(ai, pnum, ec);
+	if (!aeb)
 		return -ENOMEM;
 
-	apeb->scrub = scrub;
+	aeb->lnum = -1;
+	aeb->scrub = scrub;
+	aeb->copy_flag = aeb->sqnum = 0;
 
-	ai->ec_sum += ec;
+	ai->ec_sum += aeb->ec;
 	ai->ec_count++;
 
-	if (ai->max_ec < ec)
-		ai->max_ec = ec;
+	if (ai->max_ec < aeb->ec)
+		ai->max_ec = aeb->ec;
 
-	if (ai->min_ec > ec)
-		ai->min_ec = ec;
+	if (ai->min_ec > aeb->ec)
+		ai->min_ec = aeb->ec;
 
-	list_add_tail(&apeb->node, list);
+	list_add_tail(&aeb->u.list, list);
 
 	return 0;
 }
@@ -199,26 +201,26 @@ static struct ubi_ainf_volume *add_vol(struct ubi_attach_info *ai, int vol_id,
 }
 
 /**
- * assign_aleb_to_av - assigns a SEB to a given ainf_volume and removes it
+ * assign_aeb_to_av - assigns a SEB to a given ainf_volume and removes it
  * from it's original list.
  * @ai: ubi_attach_info object
- * @aleb: the to be assigned SEB
+ * @aeb: the to be assigned SEB
  * @av: target scan volume
  */
-static void assign_aleb_to_av(struct ubi_attach_info *ai,
-			      struct ubi_ainf_leb *aleb,
-			      struct ubi_ainf_volume *av)
+static void assign_aeb_to_av(struct ubi_attach_info *ai,
+			     struct ubi_ainf_peb *aeb,
+			     struct ubi_ainf_volume *av)
 {
-	struct ubi_ainf_leb *tmp_aleb;
+	struct ubi_ainf_peb *tmp_aeb;
 	struct rb_node **p = &ai->volumes.rb_node, *parent = NULL;
 
 	p = &av->root.rb_node;
 	while (*p) {
 		parent = *p;
 
-		tmp_aleb = rb_entry(parent, struct ubi_ainf_leb, node);
-		if (aleb->lnum != tmp_aleb->lnum) {
-			if (aleb->lnum < tmp_aleb->lnum)
+		tmp_aeb = rb_entry(parent, struct ubi_ainf_peb, u.rb);
+		if (aeb->lnum != tmp_aeb->lnum) {
+			if (aeb->lnum < tmp_aeb->lnum)
 				p = &(*p)->rb_left;
 			else
 				p = &(*p)->rb_right;
@@ -228,10 +230,11 @@ static void assign_aleb_to_av(struct ubi_attach_info *ai,
 			break;
 	}
 
+	list_del(&aeb->u.list);
 	av->leb_count++;
 
-	rb_link_node(&aleb->node, parent, p);
-	rb_insert_color(&aleb->node, &av->root);
+	rb_link_node(&aeb->u.rb, parent, p);
+	rb_insert_color(&aeb->u.rb, &av->root);
 }
 
 /**
@@ -239,27 +242,25 @@ static void assign_aleb_to_av(struct ubi_attach_info *ai,
  * @ubi: the UBI device object
  * @ai: attach info object
  * @av: the volume this LEB belongs to
- * @new_vh: the volume header derived from new_apeb
- * @new_apeb: the APEB containing the LEB described by new_vh
+ * @new_vh: the volume header derived from new_aeb
+ * @new_aeb: the AEB to be examined
  *
  * Returns 0 on success, < 0 indicates an internal error.
  */
 static int update_vol(struct ubi_device *ubi, struct ubi_attach_info *ai,
 		      struct ubi_ainf_volume *av, struct ubi_vid_hdr *new_vh,
-		      struct ubi_ainf_peb *new_apeb)
+		      struct ubi_ainf_peb *new_aeb)
 {
 	struct rb_node **p = &av->root.rb_node, *parent = NULL;
-	struct ubi_ainf_leb *aleb;
-	struct ubi_ainf_peb *victim;
-	int lnum = be32_to_cpu(new_vh->lnum);
+	struct ubi_ainf_peb *aeb, *victim;
 	int cmp_res;
 
 	while (*p) {
 		parent = *p;
-		aleb = rb_entry(parent, struct ubi_ainf_leb, node);
+		aeb = rb_entry(parent, struct ubi_ainf_peb, u.rb);
 
-		if (be32_to_cpu(new_vh->lnum) != aleb->lnum) {
-			if (be32_to_cpu(new_vh->lnum) < aleb->lnum)
+		if (be32_to_cpu(new_vh->lnum) != aeb->lnum) {
+			if (be32_to_cpu(new_vh->lnum) < aeb->lnum)
 				p = &(*p)->rb_left;
 			else
 				p = &(*p)->rb_right;
@@ -271,45 +272,51 @@ static int update_vol(struct ubi_device *ubi, struct ubi_attach_info *ai,
 		 * because of a volume change (creation, deletion, ..).
 		 * Then a PEB can be within the persistent EBA and the pool.
 		 */
-		if (aleb->peb == new_apeb) {
-			ubi_assert(aleb->lnum == lnum);
+		if (aeb->pnum == new_aeb->pnum) {
+			ubi_assert(aeb->lnum == new_aeb->lnum);
+			ubi_free_aeb(ai, new_aeb);
+
 			return 0;
 		}
 
-		cmp_res = ubi_compare_lebs(ubi, aleb, new_apeb->pnum,
-					   new_vh);
+		cmp_res = ubi_compare_lebs(ubi, aeb, new_aeb->pnum, new_vh);
 		if (cmp_res < 0)
 			return cmp_res;
 
-		/* new_aleb is newer */
+		/* new_aeb is newer */
 		if (cmp_res & 1) {
-			victim = aleb->peb;
-			if (!--aleb->peb->refcnt)
-				list_add_tail(&victim->node, &ai->erase);
+			victim = ubi_alloc_aeb(ai, aeb->ec, aeb->pnum);
+			if (!victim)
+				return -ENOMEM;
+
+			list_add_tail(&victim->u.list, &ai->erase);
 
 			if (av->highest_lnum == be32_to_cpu(new_vh->lnum))
 				av->last_data_size =
 					be32_to_cpu(new_vh->data_size);
 
 			dbg_bld("vol %i: AEB %i's PEB %i is the newer",
-				av->vol_id, aleb->lnum, new_apeb->pnum);
+				av->vol_id, aeb->lnum, new_aeb->pnum);
 
-			new_apeb->refcnt++;
-			aleb->peb = new_apeb;
-			aleb->copy_flag = !!new_vh->copy_flag;
+			aeb->ec = new_aeb->ec;
+			aeb->pnum = new_aeb->pnum;
+			aeb->copy_flag = new_vh->copy_flag;
+			aeb->scrub = new_aeb->scrub;
+			ubi_free_aeb(ai, new_aeb);
+
+		/* new_aeb is older */
+		} else {
+			dbg_bld("vol %i: AEB %i's PEB %i is old, dropping it",
+				av->vol_id, aeb->lnum, new_aeb->pnum);
+			list_add_tail(&new_aeb->u.list, &ai->erase);
 		}
 
 		return 0;
 	}
-
 	/* This LEB is new, let's add it to the volume */
-	aleb = ubi_alloc_aleb(ai, new_apeb, be32_to_cpu(new_vh->lnum),
-			      new_vh->copy_flag);
-	if (!aleb)
-		return -ENOMEM;
 
-	if (av->highest_lnum <= aleb->lnum) {
-		av->highest_lnum = aleb->lnum;
+	if (av->highest_lnum <= be32_to_cpu(new_vh->lnum)) {
+		av->highest_lnum = be32_to_cpu(new_vh->lnum);
 		av->last_data_size = be32_to_cpu(new_vh->data_size);
 	}
 
@@ -318,31 +325,30 @@ static int update_vol(struct ubi_device *ubi, struct ubi_attach_info *ai,
 
 	av->leb_count++;
 
-	rb_link_node(&aleb->node, parent, p);
-	rb_insert_color(&aleb->node, &av->root);
+	rb_link_node(&new_aeb->u.rb, parent, p);
+	rb_insert_color(&new_aeb->u.rb, &av->root);
 
 	return 0;
 }
 
 /**
- * process_pool_apeb - we found a non-empty PEB in a pool.
+ * process_pool_aeb - we found a non-empty PEB in a pool.
  * @ubi: UBI device object
  * @ai: attach info object
- * @new_vh: the volume header derived from new_apeb
- * @new_apeb: the APEB to be examined
+ * @new_vh: the volume header derived from new_aeb
+ * @new_aeb: the AEB to be examined
  *
  * Returns 0 on success, < 0 indicates an internal error.
  */
-static int process_pool_apeb(struct ubi_device *ubi, struct ubi_attach_info *ai,
-			     struct ubi_vid_hdr *new_vh,
-			     struct ubi_ainf_peb *new_apeb)
+static int process_pool_aeb(struct ubi_device *ubi, struct ubi_attach_info *ai,
+			    struct ubi_vid_hdr *new_vh,
+			    struct ubi_ainf_peb *new_aeb)
 {
 	int vol_id = be32_to_cpu(new_vh->vol_id);
 	struct ubi_ainf_volume *av;
-	int err;
 
 	if (vol_id == UBI_FM_SB_VOLUME_ID || vol_id == UBI_FM_DATA_VOLUME_ID) {
-		ubi_free_apeb(ai, new_apeb);
+		ubi_free_aeb(ai, new_aeb);
 
 		return 0;
 	}
@@ -351,26 +357,13 @@ static int process_pool_apeb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 	av = ubi_find_av(ai, vol_id);
 	if (!av) {
 		ubi_err(ubi, "orphaned volume in fastmap pool!");
-		ubi_free_apeb(ai, new_apeb);
+		ubi_free_aeb(ai, new_aeb);
 		return UBI_BAD_FASTMAP;
 	}
 
 	ubi_assert(vol_id == av->vol_id);
 
-	err = update_vol(ubi, ai, av, new_vh, new_apeb);
-	if (err) {
-		ubi_err(ubi, "failed to add LEB to vol!");
-		ubi_free_apeb(ai, new_apeb);
-		return err;
-	}
-
-	if (!new_apeb->refcnt) {
-		dbg_bld("vol %i: AEB %i's PEB %i is old, dropping it",
-			av->vol_id, be32_to_cpu(new_vh->lnum), new_apeb->pnum);
-		list_add_tail(&new_apeb->node, &ai->erase);
-	}
-
-	return 0;
+	return update_vol(ubi, ai, av, new_vh, new_aeb);
 }
 
 /**
@@ -384,19 +377,16 @@ static int process_pool_apeb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 static void unmap_peb(struct ubi_attach_info *ai, int pnum)
 {
 	struct ubi_ainf_volume *av;
-	struct rb_node *node;
-	struct ubi_ainf_leb *aleb, *tmp_aleb;
+	struct rb_node *node, *node2;
+	struct ubi_ainf_peb *aeb;
 
 	ubi_rb_for_each_entry(node, av, &ai->volumes, rb) {
-		rbtree_postorder_for_each_entry_safe(aleb, tmp_aleb, &av->root,
-						     node) {
-			if (aleb->peb->pnum == pnum) {
-				rb_erase(&aleb->node, &av->root);
+		ubi_rb_for_each_entry(node2, aeb, &av->root, u.rb) {
+			if (aeb->pnum == pnum) {
+				rb_erase(&aeb->u.rb, &av->root);
 				av->leb_count--;
-				if (!--aleb->peb->refcnt) {
-					ubi_free_apeb(ai, aleb->peb);
-					return;
-				}
+				ubi_free_aeb(ai, aeb);
+				return;
 			}
 		}
 	}
@@ -420,7 +410,7 @@ static int scan_pool(struct ubi_device *ubi, struct ubi_attach_info *ai,
 {
 	struct ubi_vid_hdr *vh;
 	struct ubi_ec_hdr *ech;
-	struct ubi_ainf_peb *new_apeb;
+	struct ubi_ainf_peb *new_aeb;
 	int i, pnum, err, ret = 0;
 
 	ech = kzalloc(ubi->ec_hdr_alsize, GFP_KERNEL);
@@ -482,7 +472,7 @@ static int scan_pool(struct ubi_device *ubi, struct ubi_attach_info *ai,
 			if (err == UBI_IO_FF_BITFLIPS)
 				scrub = 1;
 
-			add_apeb(ai, free, pnum, ec, scrub);
+			add_aeb(ai, free, pnum, ec, scrub);
 			continue;
 		} else if (err == 0 || err == UBI_IO_BITFLIPS) {
 			dbg_bld("Found non empty PEB:%i in pool", pnum);
@@ -490,19 +480,21 @@ static int scan_pool(struct ubi_device *ubi, struct ubi_attach_info *ai,
 			if (err == UBI_IO_BITFLIPS)
 				scrub = 1;
 
-			new_apeb = ubi_alloc_apeb(ai, pnum, be64_to_cpu(ech->ec));
-			if (!new_apeb) {
+			new_aeb = ubi_alloc_aeb(ai, pnum, be64_to_cpu(ech->ec));
+			if (!new_aeb) {
 				ret = -ENOMEM;
 				goto out;
 			}
 
-			new_apeb->sqnum = be64_to_cpu(vh->sqnum);
-			new_apeb->scrub = scrub;
+			new_aeb->lnum = be32_to_cpu(vh->lnum);
+			new_aeb->sqnum = be64_to_cpu(vh->sqnum);
+			new_aeb->copy_flag = vh->copy_flag;
+			new_aeb->scrub = scrub;
 
-			if (*max_sqnum < new_apeb->sqnum)
-				*max_sqnum = new_apeb->sqnum;
+			if (*max_sqnum < new_aeb->sqnum)
+				*max_sqnum = new_aeb->sqnum;
 
-			err = process_pool_apeb(ubi, ai, vh, new_apeb);
+			err = process_pool_aeb(ubi, ai, vh, new_aeb);
 			if (err) {
 				ret = err > 0 ? UBI_BAD_FASTMAP : err;
 				goto out;
@@ -528,20 +520,19 @@ out:
  */
 static int count_fastmap_pebs(struct ubi_attach_info *ai)
 {
-	struct ubi_ainf_peb *apeb;
-	struct ubi_ainf_leb *aleb;
+	struct ubi_ainf_peb *aeb;
 	struct ubi_ainf_volume *av;
 	struct rb_node *rb1, *rb2;
 	int n = 0;
 
-	list_for_each_entry(apeb, &ai->erase, node)
+	list_for_each_entry(aeb, &ai->erase, u.list)
 		n++;
 
-	list_for_each_entry(apeb, &ai->free, node)
+	list_for_each_entry(aeb, &ai->free, u.list)
 		n++;
 
 	ubi_rb_for_each_entry(rb1, av, &ai->volumes, rb)
-		ubi_rb_for_each_entry(rb2, aleb, &av->root, node)
+		ubi_rb_for_each_entry(rb2, aeb, &av->root, u.rb)
 			n++;
 
 	return n;
@@ -562,8 +553,7 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 {
 	struct list_head used, free;
 	struct ubi_ainf_volume *av;
-	struct ubi_ainf_peb *apeb, *tmp_apeb, *_tmp_apeb;
-	struct ubi_ainf_leb *aleb;
+	struct ubi_ainf_peb *aeb, *tmp_aeb, *_tmp_aeb;
 	struct ubi_fm_sb *fmsb;
 	struct ubi_fm_hdr *fmhdr;
 	struct ubi_fm_scan_pool *fmpl, *fmpl_wl;
@@ -652,7 +642,7 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 		if (fm_pos >= fm_size)
 			goto fail_bad;
 
-		add_apeb(ai, &ai->free, be32_to_cpu(fmec->pnum),
+		add_aeb(ai, &ai->free, be32_to_cpu(fmec->pnum),
 			be32_to_cpu(fmec->ec), 0);
 	}
 
@@ -663,7 +653,7 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 		if (fm_pos >= fm_size)
 			goto fail_bad;
 
-		add_apeb(ai, &used, be32_to_cpu(fmec->pnum),
+		add_aeb(ai, &used, be32_to_cpu(fmec->pnum),
 			be32_to_cpu(fmec->ec), 0);
 	}
 
@@ -674,7 +664,7 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 		if (fm_pos >= fm_size)
 			goto fail_bad;
 
-		add_apeb(ai, &used, be32_to_cpu(fmec->pnum),
+		add_aeb(ai, &used, be32_to_cpu(fmec->pnum),
 			be32_to_cpu(fmec->ec), 1);
 	}
 
@@ -685,7 +675,7 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 		if (fm_pos >= fm_size)
 			goto fail_bad;
 
-		add_apeb(ai, &ai->erase, be32_to_cpu(fmec->pnum),
+		add_aeb(ai, &ai->erase, be32_to_cpu(fmec->pnum),
 			be32_to_cpu(fmec->ec), 1);
 	}
 
@@ -741,32 +731,28 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 			if (pnum < 0)
 				continue;
 
-			apeb = NULL;
-			list_for_each_entry(tmp_apeb, &used, node) {
-				if (tmp_apeb->pnum == pnum) {
-					apeb = tmp_apeb;
+			aeb = NULL;
+			list_for_each_entry(tmp_aeb, &used, u.list) {
+				if (tmp_aeb->pnum == pnum) {
+					aeb = tmp_aeb;
 					break;
 				}
 			}
 
-			if (!apeb) {
+			if (!aeb) {
 				ubi_err(ubi, "PEB %i is in EBA but not in used list", pnum);
 				goto fail_bad;
 			}
 
-			aleb = ubi_alloc_aleb(ai, apeb, j, 0);
-			if (!aleb) {
-				ubi_err(ubi, "Failed to allocate an aleb element");
-				goto fail_bad;
-			}
+			aeb->lnum = j;
 
-			if (av->highest_lnum <= aleb->lnum)
-				av->highest_lnum = aleb->lnum;
+			if (av->highest_lnum <= aeb->lnum)
+				av->highest_lnum = aeb->lnum;
 
-			assign_aleb_to_av(ai, aleb, av);
+			assign_aeb_to_av(ai, aeb, av);
 
 			dbg_bld("inserting PEB:%i (LEB %i) to vol %i",
-				apeb->pnum, aleb->lnum, av->vol_id);
+				aeb->pnum, aeb->lnum, av->vol_id);
 		}
 	}
 
@@ -781,15 +767,11 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 	if (max_sqnum > ai->max_sqnum)
 		ai->max_sqnum = max_sqnum;
 
-	list_for_each_entry_safe(tmp_apeb, _tmp_apeb, &free, node)
-		list_move_tail(&tmp_apeb->node, &ai->free);
+	list_for_each_entry_safe(tmp_aeb, _tmp_aeb, &free, u.list)
+		list_move_tail(&tmp_aeb->u.list, &ai->free);
 
-	list_for_each_entry_safe(tmp_apeb, _tmp_apeb, &used, node) {
-		if (!tmp_apeb->refcnt)
-			list_move_tail(&tmp_apeb->node, &ai->erase);
-		else
-			list_del(&tmp_apeb->node);
-	}
+	list_for_each_entry_safe(tmp_aeb, _tmp_aeb, &used, u.list)
+		list_move_tail(&tmp_aeb->u.list, &ai->erase);
 
 	ubi_assert(list_empty(&free));
 
@@ -808,14 +790,13 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 fail_bad:
 	ret = UBI_BAD_FASTMAP;
 fail:
-	list_for_each_entry_safe(tmp_apeb, _tmp_apeb, &used, node) {
-		list_del(&tmp_apeb->node);
-		if (!tmp_apeb->refcnt)
-			ubi_free_apeb(ai, tmp_apeb);
+	list_for_each_entry_safe(tmp_aeb, _tmp_aeb, &used, u.list) {
+		list_del(&tmp_aeb->u.list);
+		ubi_free_aeb(ai, tmp_aeb);
 	}
-	list_for_each_entry_safe(tmp_apeb, _tmp_apeb, &free, node) {
-		list_del(&tmp_apeb->node);
-		ubi_free_apeb(ai, tmp_apeb);
+	list_for_each_entry_safe(tmp_aeb, _tmp_aeb, &free, u.list) {
+		list_del(&tmp_aeb->u.list);
+		ubi_free_aeb(ai, tmp_aeb);
 	}
 
 	return ret;
@@ -828,14 +809,13 @@ fail:
 static int find_fm_anchor(struct ubi_attach_info *ai)
 {
 	int ret = -1;
-	struct ubi_ainf_peb *apeb;
+	struct ubi_ainf_peb *aeb;
 	unsigned long long max_sqnum = 0;
 
-	list_for_each_entry(apeb, &ai->fastmap, node) {
-		if (apeb->vol_id == UBI_FM_SB_VOLUME_ID &&
-		    apeb->sqnum > max_sqnum) {
-			max_sqnum = apeb->sqnum;
-			ret = apeb->pnum;
+	list_for_each_entry(aeb, &ai->fastmap, u.list) {
+		if (aeb->vol_id == UBI_FM_SB_VOLUME_ID && aeb->sqnum > max_sqnum) {
+			max_sqnum = aeb->sqnum;
+			ret = aeb->pnum;
 		}
 	}
 
@@ -860,7 +840,7 @@ int ubi_scan_fastmap(struct ubi_device *ubi, struct ubi_attach_info *ai,
 	struct ubi_vid_hdr *vh;
 	struct ubi_ec_hdr *ech;
 	struct ubi_fastmap_layout *fm;
-	struct ubi_ainf_peb *tmp_apeb, *apeb;
+	struct ubi_ainf_peb *tmp_aeb, *aeb;
 	int i, used_blocks, pnum, fm_anchor, ret = 0;
 	size_t fm_size;
 	__be32 crc, tmp_crc;
@@ -871,8 +851,8 @@ int ubi_scan_fastmap(struct ubi_device *ubi, struct ubi_attach_info *ai,
 		return UBI_NO_FASTMAP;
 
 	/* Move all (possible) fastmap blocks into our new attach structure. */
-	list_for_each_entry_safe(apeb, tmp_apeb, &scan_ai->fastmap, node)
-		list_move_tail(&apeb->node, &ai->fastmap);
+	list_for_each_entry_safe(aeb, tmp_aeb, &scan_ai->fastmap, u.list)
+		list_move_tail(&aeb->u.list, &ai->fastmap);
 
 	down_write(&ubi->fm_protect);
 	memset(ubi->fm_buf, 0, ubi->fm_size);

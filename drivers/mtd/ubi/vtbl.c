@@ -300,7 +300,7 @@ static int create_vtbl(struct ubi_device *ubi, struct ubi_attach_info *ai,
 {
 	int err, tries = 0;
 	struct ubi_vid_hdr *vid_hdr;
-	struct ubi_ainf_peb *new_apeb;
+	struct ubi_ainf_peb *new_aeb;
 	enum ubi_io_mode mode;
 
 	dbg_gen("create volume table (copy #%d)", copy + 1);
@@ -310,9 +310,9 @@ static int create_vtbl(struct ubi_device *ubi, struct ubi_attach_info *ai,
 		return -ENOMEM;
 
 retry:
-	new_apeb = ubi_early_get_peb(ubi, ai);
-	if (IS_ERR(new_apeb)) {
-		err = PTR_ERR(new_apeb);
+	new_aeb = ubi_early_get_peb(ubi, ai);
+	if (IS_ERR(new_aeb)) {
+		err = PTR_ERR(new_aeb);
 		goto out_free;
 	}
 
@@ -333,12 +333,12 @@ retry:
 	vid_hdr->sqnum = cpu_to_be64(++ai->max_sqnum);
 
 	/* The EC header is already there, write the VID header */
-	err = ubi_io_write_vid_hdr(ubi, new_apeb->pnum, vid_hdr);
+	err = ubi_io_write_vid_hdr(ubi, new_aeb->pnum, vid_hdr);
 	if (err)
 		goto write_error;
 
 	/* Write the layout volume contents */
-	err = ubi_io_write_data(ubi, vtbl, new_apeb->pnum, 0, ubi->vtbl_size,
+	err = ubi_io_write_data(ubi, vtbl, new_aeb->pnum, 0, ubi->vtbl_size,
 				UBI_IO_MODE_NORMAL);
 	if (err)
 		goto write_error;
@@ -347,10 +347,8 @@ retry:
 	 * And add it to the attaching information. Don't delete the old version
 	 * of this LEB as it will be deleted and freed in 'ubi_add_to_av()'.
 	 */
-	err = ubi_add_to_av(ubi, ai, new_apeb, vid_hdr);
-	if (err)
-		ubi_free_apeb(ai, new_apeb);
-
+	err = ubi_add_to_av(ubi, ai, new_aeb->pnum, new_aeb->ec, vid_hdr, 0);
+	ubi_free_aeb(ai, new_aeb);
 	ubi_free_vid_hdr(ubi, vid_hdr);
 	return err;
 
@@ -360,10 +358,10 @@ write_error:
 		 * Probably this physical eraseblock went bad, try to pick
 		 * another one.
 		 */
-		list_add(&new_apeb->node, &ai->erase);
+		list_add(&new_aeb->u.list, &ai->erase);
 		goto retry;
 	}
-	ubi_free_apeb(ai, new_apeb);
+	ubi_free_aeb(ai, new_aeb);
 out_free:
 	ubi_free_vid_hdr(ubi, vid_hdr);
 	return err;
@@ -386,7 +384,7 @@ static struct ubi_vtbl_record *process_lvol(struct ubi_device *ubi,
 {
 	int err;
 	struct rb_node *rb;
-	struct ubi_ainf_leb *aleb;
+	struct ubi_ainf_peb *aeb;
 	struct ubi_vtbl_record *leb[UBI_LAYOUT_VOLUME_EBS] = { NULL, NULL };
 	int leb_corrupted[UBI_LAYOUT_VOLUME_EBS] = {1, 1};
 
@@ -418,14 +416,14 @@ static struct ubi_vtbl_record *process_lvol(struct ubi_device *ubi,
 	dbg_gen("check layout volume");
 
 	/* Read both LEB 0 and LEB 1 into memory */
-	ubi_rb_for_each_entry(rb, aleb, &av->root, node) {
-		leb[aleb->lnum] = vzalloc(ubi->vtbl_size);
-		if (!leb[aleb->lnum]) {
+	ubi_rb_for_each_entry(rb, aeb, &av->root, u.rb) {
+		leb[aeb->lnum] = vzalloc(ubi->vtbl_size);
+		if (!leb[aeb->lnum]) {
 			err = -ENOMEM;
 			goto out_free;
 		}
 
-		err = ubi_io_read_data(ubi, leb[aleb->lnum], aleb->peb->pnum,
+		err = ubi_io_read_data(ubi, leb[aeb->lnum], aeb->pnum,
 				       0, ubi->vtbl_size, UBI_IO_MODE_NORMAL);
 		if (err == UBI_IO_BITFLIPS || mtd_is_eccerr(err))
 			/*
@@ -433,12 +431,12 @@ static struct ubi_vtbl_record *process_lvol(struct ubi_device *ubi,
 			 * uncorrectable ECC error, but we have our own CRC and
 			 * the data will be checked later. If the data is OK,
 			 * the PEB will be scrubbed (because we set
-			 * aleb->peb->scrub). If the data is not OK, the
-			 * contents of the PEB will be recovered from the
-			 * second copy, and aleb->peb->scrub will be cleared in
+			 * aeb->scrub). If the data is not OK, the contents of
+			 * the PEB will be recovered from the second copy, and
+			 * aeb->scrub will be cleared in
 			 * 'ubi_add_to_av()'.
 			 */
-			aleb->peb->scrub = 1;
+			aeb->scrub = 1;
 		else if (err)
 			goto out_free;
 	}
