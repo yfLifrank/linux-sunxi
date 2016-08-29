@@ -36,8 +36,13 @@ static void toshiba_nand_decode_id(struct nand_chip *chip)
 
 static int toshiba_nand_init(struct nand_chip *chip)
 {
+	struct mtd_info *mtd = nand_to_mtd(chip);
+
 	if (nand_is_slc(chip))
 		chip->bbt_options |= NAND_BBT_SCAN2NDPAGE;
+
+	/* FIXME: this is a hack to make TC58 NANDs work. */
+	mtd->pairing = &dist3_pairing_scheme;
 
 	return 0;
 }

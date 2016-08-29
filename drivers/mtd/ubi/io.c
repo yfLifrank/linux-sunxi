@@ -1056,7 +1056,7 @@ static int validate_mode(const struct ubi_device *ubi,
 			 const struct ubi_vid_hdr *vid_hdr)
 {
 	/* All versions of UBI support normal mode. */
-	if (!vid_hdr->vol_mode == UBI_VID_MODE_NORMAL)
+	if (vid_hdr->vol_mode == UBI_VID_MODE_NORMAL)
 		return 0;
 
 	/* Version 1 only supports normal mode. */
